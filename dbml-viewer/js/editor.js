@@ -46,6 +46,8 @@ class CodeEditor {
     this.ta = $('#ta'); this.hl = $('#hl'); this.layer = $('#layer'); this.gut = $('#gutIn');
     this.band = $('#band'); this.errBar = $('#edErr');
     this.errLine = 0; this.nLines = -1; this.lastCaret = -1;
+    // com quebra de linha uma linha do arquivo pode ocupar várias linhas na tela: o espelho mede a altura de cada uma
+    this.mir = $('#mir'); this.tops = [PAD_T]; this.bandL = [0, 0];
     this.hlFn = highlight; this.indent = '  '; this.ts = false; // modo DBML (padrão) ou TypeScript
     this.ta.addEventListener('input', () => { this.refresh(); cb.onInput(); this.caretCheck(); });
     this.ta.addEventListener('scroll', () => this.syncScroll());
@@ -54,6 +56,8 @@ class CodeEditor {
     this.ta.addEventListener('keydown', ev => this.onKey(ev));
     document.addEventListener('selectionchange', () => { if (document.activeElement === this.ta) this.caretCheck(); });
     this.errBar.addEventListener('click', () => { if (this.errLine) this.reveal(this.errLine, this.errLine, true); });
+    // a largura do editor muda (janela, divisória, ocultar o código): reflui o texto e remede
+    new ResizeObserver(() => this.relayout()).observe(this.ta);
   }
   get value() { return this.ta.value; }
   setValue(t) { this.ta.value = t; this.refresh(); this.syncScroll(); }
@@ -63,13 +67,31 @@ class CodeEditor {
 
   refresh() {
     const t = this.ta.value;
+    this.fit();
     this.hl.innerHTML = this.hlFn(t) + '\n';
-    const n = t.split('\n').length;
-    if (n !== this.nLines || this._gErr !== this.errLine) { this.nLines = n; this._gErr = this.errLine; this.buildGutter(); }
+    this.measure(t);
+  }
+  relayout() { this.fit(); this.measure(this.ta.value); }
+  // largura útil do texto (sem a barra de rolagem): o realce e o espelho quebram a linha no mesmo ponto do textarea
+  fit() { const w = this.ta.clientWidth; if (w) { this.layer.style.width = w + 'px'; this.mir.style.width = w + 'px'; } }
+  // altura de cada linha do arquivo (uma linha longa quebra em várias): posiciona número, faixa e rolagem
+  measure(t) {
+    const lines = t.split('\n'); this.nLines = lines.length;
+    this.mir.textContent = '';
+    const frag = document.createDocumentFragment();
+    for (const l of lines) { const d = document.createElement('div'); d.textContent = l || ' '; frag.append(d); }
+    this.mir.append(frag);
+    const tops = [PAD_T]; let y = PAD_T;
+    for (const d of this.mir.children) { y += d.offsetHeight || LINE_H; tops.push(y); }
+    this.tops = tops; this._gErr = this.errLine;
+    this.buildGutter(); this.setBand(this.bandL[0], this.bandL[1]);
   }
   buildGutter() {
     let s = '';
-    for (let i = 1; i <= this.nLines; i++) s += (i === this.errLine ? `<span class="gerr">${i}</span>` : i) + '\n';
+    for (let i = 1; i <= this.nLines; i++) {
+      const hgt = (this.tops[i] || 0) - (this.tops[i - 1] || 0) || LINE_H;
+      s += `<div style="height:${hgt}px">${i === this.errLine ? `<span class="gerr">${i}</span>` : i}</div>`;
+    }
     this.gut.innerHTML = s;
   }
   syncScroll() {
@@ -82,14 +104,16 @@ class CodeEditor {
   offsetOfLine(l) { const t = this.ta.value; let idx = 0; for (let i = 1; i < l; i++) { const j = t.indexOf('\n', idx); if (j < 0) return t.length; idx = j + 1; } return idx; }
 
   setBand(l1, l2) {
-    if (!l1) { this.band.style.display = 'none'; return; }
+    this.bandL = [l1, l2];
+    const a = this.tops[l1 - 1], b = this.tops[Math.min(l2, this.nLines)];
+    if (!l1 || a == null || b == null) { this.band.style.display = 'none'; return; }
     this.band.style.display = 'block';
-    this.band.style.top = (PAD_T + (l1 - 1) * LINE_H) + 'px';
-    this.band.style.height = ((l2 - l1 + 1) * LINE_H) + 'px';
+    this.band.style.top = a + 'px';
+    this.band.style.height = (b - a) + 'px';
   }
   flash() { this.band.classList.remove('flash'); void this.band.offsetWidth; this.band.classList.add('flash'); }
   reveal(l1, l2, smooth) {
-    const top = Math.max(0, (l1 - 3) * LINE_H);
+    const top = Math.max(0, (this.tops[Math.max(0, l1 - 3)] || 0) - PAD_T); // deixa duas linhas visíveis acima
     this.ta.scrollTo({ top, left: 0, behavior: smooth === false ? 'auto' : 'smooth' });
     const off = this.offsetOfLine(l1); this.ta.setSelectionRange(off, off); this.lastCaret = l1;
     this.setBand(l1, l2); this.flash();

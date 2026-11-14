@@ -14,7 +14,7 @@ O app se chamava **DBML Editor** até a versão 1.0.0. O instalador novo remove 
 
 ## Instalação (Windows 10/11)
 
-**Só instalar:** dê duplo clique em `c2t-schema-db-editor-Setup.exe`, na raiz do repositório (já vem pronto, nada para compilar).
+**Só instalar:** dê duplo clique em `setup.exe`, na raiz do repositório (já vem pronto, nada para compilar).
 
 A janela do instalador mostra a versão e a pasta de destino, e oferece criar atalho na Área de Trabalho e abrir o programa ao concluir.
 Ele instala em `%LOCALAPPDATA%\Programs\c2t-schema-db-editor` (sem administrador), cria atalho no Menu Iniciar, associa `.dbml`,
@@ -23,7 +23,7 @@ põe "Abrir no c2t-schema-db-editor" no menu do botão direito do `schema.ts` e 
 
 - **Atualizar:** rode o instalador novo por cima. Se houver janelas do editor abertas, ele avisa e as encerra antes de continuar.
 - **Desinstalar:** por *Aplicativos instalados* ou pelo `Uninstall.exe` da pasta. A janela pergunta se quer apagar também layouts e preferências.
-- **Em silêncio:** `c2t-schema-db-editor-Setup.exe /S` instala e `Uninstall.exe /S` remove (mantendo layouts e preferências).
+- **Em silêncio:** `setup.exe /S` instala e `Uninstall.exe /S` remove (mantendo layouts e preferências).
 - No primeiro duplo clique num `.dbml`, o Windows pode perguntar qual app usar: escolha **c2t-schema-db-editor** e **Sempre**.
 
 O instalador não é assinado digitalmente: em outra máquina o Windows pode mostrar o aviso do SmartScreen ("Mais informações" › "Executar assim mesmo").
@@ -64,6 +64,7 @@ O modo é escolhido pela extensão do arquivo. No modo `.ts`:
 - O `Ctrl+S` grava o texto direto no arquivo. Depois de salvar é preciso gerar a migration (`drizzle-kit generate`) como de costume: o editor não toca no banco.
 - **Pendências de migration:** o servidor lê o snapshot mais recente em `meta/NNNN_snapshot.json` (pasta `meta` ao lado do `schema.ts`) e o diagrama marca o que o `schema.ts` tem de diferente: tabela/enum **nova** (borda verde), **alterada** (borda âmbar) ou **removida** do `schema.ts` (cartão fantasma de borda vermelha tracejada), sempre com um selo no cabeçalho; colunas novas/alteradas (tipo, null ou PK) e removidas ganham uma barra lateral na mesma cor. A comparação é só com a última migration **gerada**: não diz se ela já foi aplicada no banco. Ao voltar para a janela o snapshot é relido (útil depois do `drizzle-kit generate`).
 - Cursor ou clique no código dentro de uma tabela marca a tabela no diagrama (como o clique nela) e a traz para a vista se estiver fora.
+- Relações **1:n**: duas barras (`||`) na ponta da tabela pai ("um") e pé de galinha na ponta da tabela filha ("muitos"). Ao selecionar uma tabela, as relações dela ganham um rótulo no meio da linha com o `1:n` e as colunas (`user_id → id`); fora da seleção o diagrama fica sem texto sobre as linhas.
 - O botão **Detalhes** no cabeçalho de cada tabela (e de cada enum) abre um painel à direita com o que não cabe no cartão: se a tabela tem RLS (`.enableRLS()`), chaves estrangeiras que saem e as que chegam (com `ON DELETE`/`ON UPDATE`, ou "NO ACTION (padrão)" quando não declarados), índices (únicos, parciais, de expressão) e checks. Nos enums mostra os valores e as colunas que os usam. Os nomes de tabela no painel são links para o diagrama; `Esc` fecha. Só no modo `.ts`.
 - Variável ou tabela declarada duas vezes vira aviso na barra de status (com as linhas) e as duas aparecem no diagrama.
 - O botão **Legenda** mostra/oculta a legenda (oculta por padrão).
@@ -96,4 +97,4 @@ O anel não usa a borda, então uma tabela nova continua verde mesmo selecionada
 | `installer/app.manifest` | manifesto dos executáveis: compatibilidade com Windows 10/11, sem administrador, DPI |
 | `installer/App.cs` | o app: servidor local + abre o navegador (embute a página) |
 | `installer/Setup.cs` | instalador/desinstalador com janela (arquivos, associações, atalhos, registro) |
-| `installer/build.ps1` | compila tudo com o `csc.exe` do Windows gera o ícone e `c2t-schema-db-editor-Setup.exe` na raiz |
+| `installer/build.ps1` | compila tudo com o `csc.exe` do Windows, gera o ícone e o `setup.exe` na raiz |

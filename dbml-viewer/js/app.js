@@ -179,8 +179,9 @@ function buildNode(n) {
 }
 
 function markerPath(x, y, dir, card) {
-  if (card === '1') return `M${x + dir * 11} ${y - 5}V${y + 5}M${x + dir * 16} ${y - 5}V${y + 5}`;
-  if (card === '*') return `M${x + dir * 13} ${y}L${x} ${y - 6}M${x + dir * 13} ${y}L${x} ${y}M${x + dir * 13} ${y}L${x} ${y + 6}`;
+  // "1" = duas barras (lado um, tabela pai); "*" = pé de galinha (lado muitos, tabela filha)
+  if (card === '1') return `M${x + dir * 13} ${y - 7}V${y + 7}M${x + dir * 19} ${y - 7}V${y + 7}`;
+  if (card === '*') return `M${x + dir * 16} ${y}L${x} ${y - 8}M${x + dir * 16} ${y}L${x} ${y}M${x + dir * 16} ${y}L${x} ${y + 8}`;
   return '';
 }
 function endY(n, cols) { const c = cols && cols[0]; return n.y + (c != null && n.rowY[c] != null ? n.rowY[c] : n.hdY); }
@@ -195,13 +196,30 @@ function drawEdge(e) {
   const d = sa === sb ? 55 + Math.min(dx * 0.25, 120) : Math.max(45, Math.min(dx / 2, 200));
   e.ln.setAttribute('d', `M${x1} ${y1}C${x1 + sa * d} ${y1},${x2 + sb * d} ${y2},${x2} ${y2}`);
   e.mk.setAttribute('d', markerPath(x1, y1, sa, e.ca) + markerPath(x2, y2, sb, e.cb));
+  // rótulo no meio da curva (ponto t = 0.5 da bézier)
+  if (e.lb) e.lb.setAttribute('transform', `translate(${(x1 + 3 * (x1 + sa * d) + 3 * (x2 + sb * d) + x2) / 8} ${(y1 + y2) / 2})`);
+}
+// rótulo "1:n  coluna → coluna": só aparece nas relações destacadas (tabela selecionada); o fundo acompanha o tamanho do texto
+function buildLabel(e) {
+  e.lb = sv('g', { class: 'lbl' }); e.lbr = sv('rect', { rx: 4 }); e.lbt = sv('text', { 'text-anchor': 'middle', y: 3 });
+  e.lbt.append(sv('tspan', { class: 'n' }), sv('tspan', { class: 'c', dx: 6 }));
+  const card = k => k === '*' ? 'n' : '1', swap = e.ca === '*' && e.cb !== '*'; // "1:n" sempre com o lado um primeiro
+  e.lbt.firstChild.textContent = swap ? `${card(e.cb)}:${card(e.ca)}` : `${card(e.ca)}:${card(e.cb)}`; e.lbt.lastChild.textContent = `${e.aCols.join(', ')} → ${e.bCols.join(', ')}`;
+  e.lb.append(e.lbr, e.lbt);
+}
+function fitLabel(e) {
+  if (!e.lb) return;
+  const b = e.lbt.getBBox(); if (!b.width) return;
+  e.lbr.setAttribute('x', b.x - 6); e.lbr.setAttribute('y', b.y - 3); e.lbr.setAttribute('width', b.width + 12); e.lbr.setAttribute('height', b.height + 6);
 }
 function buildEdges() {
   svgEl.replaceChildren();
   for (const e of model.edges) {
     const g = sv('g', { class: 'edge ' + e.kind }); e.g = g;
     e.ln = sv('path', { class: 'ln' }); e.mk = sv('path', { class: 'mk' });
-    g.append(e.ln, e.mk); svgEl.append(g); drawEdge(e);
+    g.append(e.ln, e.mk); svgEl.append(g);
+    if (e.kind === 'ref' && e.aCols.length && e.bCols.length) { buildLabel(e); g.append(e.lb); }
+    drawEdge(e); fitLabel(e);
   }
 }
 const edgesOf = n => model.edges.filter(e => e.a === n || e.b === n);
@@ -296,7 +314,7 @@ function applyModel(m) {
   $('#empty').style.display = m.nodes.length ? 'none' : 'flex'; $('#empty').textContent = doc.mode === 'ts' ? 'Nenhuma tabela encontrada no código ao lado' : 'Escreva o DBML no editor ao lado';
   if (first) { if (doc.layout && doc.layout.view) { view = doc.layout.view; applyView(); } else fit(); doc.layout = null; }
   runSearch(); onCaretLine(ed.caretLine());
-  (document.fonts && document.fonts.ready || Promise.resolve()).then(() => { if (model !== m) return; m.nodes.forEach(measure); m.edges.forEach(drawEdge); });
+  (document.fonts && document.fonts.ready || Promise.resolve()).then(() => { if (model !== m) return; m.nodes.forEach(measure); m.edges.forEach(drawEdge); m.edges.forEach(fitLabel); });
   renderDetail(); // mantém o painel aberto (e atualizado) enquanto o código muda
   window.__model = m;
 }
