@@ -1,5 +1,5 @@
 *.exe
-!dist/DBML-Editor-Setup.exe
+!dist/c2t-schema-db-editor-Setup.exe
 installer/obj/
 # configurações locais do Claude Code / ferramentas
 .claude/

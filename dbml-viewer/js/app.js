@@ -11,6 +11,8 @@ let bandNode = null, caretNode = null, doc = null, ed = null, saveTimer = 0, com
 let snapshot = null; // snapshot do Drizzle mais recente (só no modo .ts, com o servidor local)
 let prefs = { light: false, sw: 440, noside: false, legendOn: false }; // legenda oculta até o usuário pedir
 const P = window.__DBML__;
+// nome e versão vêm do executável (Product.cs); o padrão vale para a página aberta sem o servidor local
+const APP = (P && P.app) || { name: 'c2t-schema-db-editor', version: '', publisher: '', url: '' };
 
 /* ============================ persistência ============================ */
 const ls = {
@@ -334,7 +336,7 @@ const isDirty = () => !!doc && ed.value !== doc.saved;
 function updateDirty() {
   const d = isDirty();
   $('#dirty').style.display = d ? 'inline' : 'none'; $('#bSave').disabled = !d;
-  document.title = (d ? '• ' : '') + (doc ? doc.name : 'DBML Editor') + ' — DBML Editor';}
+  document.title = (d ? '• ' : '') + (doc ? doc.name + ' — ' : '') + APP.name;}
 function setSaveState(txt, bad) { const s = $('#saveState'); s.textContent = txt; s.classList.toggle('bad', !!bad); }
 async function loadDocument(text, name, key, extra) {
   extra = extra || {};
@@ -417,6 +419,12 @@ $('#bOrg').onclick = () => { if (!model) return; autoLayout(model.nodes, model.e
 $('#bTheme').onclick = () => { prefs.light = !prefs.light; savePrefs(); };
 $('#bSide').onclick = () => { prefs.noside = !prefs.noside; savePrefs(); };
 $('#dtClose').onclick = closeDetail;
+$('#bAbout').onclick = () => {
+  $('#abName').textContent = APP.name;
+  $('#abVer').textContent = [APP.version && 'Versão ' + APP.version, APP.publisher].filter(Boolean).join(' · ');
+  const a = $('#abUrl'); a.textContent = APP.url; a.href = APP.url || '#'; a.style.display = APP.url ? '' : 'none';
+  $('#about').showModal();
+};
 $('#bLegend').onclick =() => { prefs.legendOn = !prefs.legendOn; savePrefs(); };
 // voltando à janela (ex.: depois de rodar drizzle-kit generate) relê o snapshot e remarca o que falta migrar
 addEventListener('focus', async () => { if (doc && doc.mode === 'ts' && ed && await loadSnapshot()) compile(); });

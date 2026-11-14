@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>DBML Viewer</title>
+<title>c2t-schema-db-editor</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{--bg:#0f1218;--dot:#252c3a;--card:#1b212c;--cardb:#2c3546;--txt:#dfe5ee;--mut:#8591a5;--line:#6f7f9c;--hl:#4da3ff;--rowh:#242c3a;--hd:#34496b;--enumt:#cdb4ff;--bar:#161b24;--barb:#262e3d;--btn:#222a38;--btnh:#2c3647;
@@ -118,6 +118,15 @@ body.ts .leg-ts{display:block}
 body.ts .leg-dbml{display:none}
 .hd .dt{margin-left:auto;align-self:center;font-size:10px;line-height:14px;padding:0 7px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:4px}
 .hd .dt:hover{background:rgba(255,255,255,.24)}
+/* ---- janela Sobre ---- */
+#about{width:420px;max-width:90vw;background:var(--bar);color:var(--txt);border:1px solid var(--barb);border-radius:10px;padding:18px 22px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#about::backdrop{background:rgba(0,0,0,.45)}
+#about h3{margin:0 0 2px;font-size:16px}
+#about h3 b{color:var(--hl)}
+#about p{margin:8px 0;line-height:1.45}
+#abVer,#about .keys{color:var(--mut);font-size:12px}
+#about a{color:var(--hl)}
+#about form{text-align:right;margin-top:14px}
 /* ---- painel Detalhes ---- */
 #detail{display:none;position:fixed;right:12px;top:58px;bottom:48px;width:340px;z-index:920;flex-direction:column;background:var(--bar);border:1px solid var(--barb);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3);font-size:12px}
 body.det #legend{right:364px}
@@ -144,7 +153,7 @@ body.noside #ext{left:12px}
 <body>
 <header id="bar">
   <button id="bSide" class="on" title="Mostrar/ocultar o código (Ctrl+B)">&lt;/&gt;</button>
-  <div class="brand"><b>◈</b><span id="fname">DBML Editor</span><span id="dirty" title="Alterações não salvas">●</span></div>
+  <div class="brand"><b>◈</b><span id="fname">c2t-schema-db-editor</span><span id="dirty" title="Alterações não salvas">●</span></div>
   <input id="q" placeholder="Buscar tabela ou coluna  ( / )" autocomplete="off">
   <div class="sp"></div>
   <span id="saveState"></span>
@@ -155,6 +164,7 @@ body.noside #ext{left:12px}
   <button id="bLegend" title="Mostrar/ocultar a legenda">Legenda</button>
   <button id="bTheme">Tema</button>
   <button id="bOpen">Abrir…</button>
+  <button id="bAbout" title="Sobre o programa">Sobre</button>
   <input id="file" type="file" accept=".dbml,.ts,.txt" hidden>
 </header>
 
@@ -205,6 +215,14 @@ body.noside #ext{left:12px}
   <div class="lg"><i class="sw box sel"></i>Selecionada (clique ou cursor no código)</div>
   <div class="lg"><i class="sw box match"></i>Resultado da busca</div>
 </div>
+<dialog id="about">
+  <h3><b>◈</b> <span id="abName"></span></h3>
+  <p id="abVer"></p>
+  <p>Editor e visualizador de diagramas ER para arquivos DBML e para o <code>schema.ts</code> do Drizzle. Roda só neste computador: nada é enviado para a internet.</p>
+  <p class="keys">Ctrl+S salvar · Ctrl+B mostrar/ocultar o código · / buscar · 0 enquadrar · Esc limpar seleção</p>
+  <p><a id="abUrl" target="_blank" rel="noopener"></a></p>
+  <form method="dialog"><button class="pri">Fechar</button></form>
+</dialog>
 <aside id="detail">
   <header><div><b id="dtTitle"></b><div id="dtSub"></div></div><button id="dtClose" title="Fechar (Esc)">×</button></header>
   <div id="dtBody"></div>

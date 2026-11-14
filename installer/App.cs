@@ -1,5 +1,5 @@
-// DBML Editor: servidor local + launcher, tudo num .exe só (sem PowerShell).
-// Serve a página embutida em 127.0.0.1 (porta aleatória, token na URL), grava o .dbml
+// O app: servidor local + launcher, tudo num .exe só (sem PowerShell). Nome e versão vêm de Product.cs.
+// Serve a página embutida em 127.0.0.1 (porta aleatória, token na URL), grava o arquivo aberto (.dbml ou schema.ts)
 // e abre uma janela limpa do Chrome/Edge. Encerra sozinho quando a janela fecha.
 using System;
 using System.Diagnostics;
@@ -10,6 +10,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Forms;
 using Microsoft.Win32;
+
+// o que aparece em Propriedades > Detalhes do executável
+[assembly: AssemblyTitle(Product.Name)]
+[assembly: AssemblyDescription(Product.Description)]
+[assembly: AssemblyProduct(Product.Name)]
+[assembly: AssemblyCompany(Product.Publisher)]
+[assembly: AssemblyCopyright(Product.Copyright)]
+[assembly: AssemblyVersion(Product.Version + ".0")]
+[assembly: AssemblyFileVersion(Product.Version + ".0")]
+[assembly: AssemblyInformationalVersion(Product.Version)]
 
 static class App
 {
@@ -27,7 +37,7 @@ static class App
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Não foi possível abrir o arquivo:\n\n" + ex.Message, "DBML Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Não foi possível abrir o arquivo:\n\n" + ex.Message, Product.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -35,7 +45,7 @@ static class App
     {
         using (var d = new OpenFileDialog())
         {
-            d.Title = "DBML Editor - abrir arquivo";
+            d.Title = Product.Name + " - abrir arquivo";
             d.Filter = "DBML ou schema do Drizzle (*.dbml;*.ts)|*.dbml;*.ts|Todos os arquivos (*.*)|*.*";
             return d.ShowDialog() == DialogResult.OK ? d.FileName : null;
         }
@@ -44,7 +54,14 @@ static class App
     static void Run(string full, bool noBrowser)
     {
         if (!File.Exists(full)) throw new FileNotFoundException("Arquivo não encontrado: " + full);
-        string data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "dbml-viewer");
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string data = Path.Combine(appData, Product.DataDir), legacy = Path.Combine(appData, Product.LegacyDataDir);
+        // primeira execução depois da troca de nome: traz os layouts e preferências do antigo DBML Editor
+        if (!Directory.Exists(data) && Directory.Exists(legacy))
+        {
+            Directory.CreateDirectory(data);
+            foreach (string f in Directory.GetFiles(legacy, "*.json")) File.Copy(f, Path.Combine(data, Path.GetFileName(f)), false);
+        }
         Directory.CreateDirectory(data);
         string hash;
         using (var md5 = MD5.Create())
@@ -89,7 +106,8 @@ static class App
                 string m = req.HttpMethod;
                 if (rest == "") Bytes(ctx, 200, Res("viewer.html"), "text/html; charset=utf-8");
                 else if (rest == "session.js")
-                    Text(ctx, 200, "window.__DBML__ = {\"name\":" + Q(Path.GetFileName(full)) + ",\"path\":" + Q(full) + ",\"api\":true};", "application/javascript; charset=utf-8");
+                    Text(ctx, 200, "window.__DBML__ = {\"name\":" + Q(Path.GetFileName(full)) + ",\"path\":" + Q(full) + ",\"api\":true,\"app\":{\"name\":" + Q(Product.Name)
+                        + ",\"version\":" + Q(Product.Version) + ",\"publisher\":" + Q(Product.Publisher) + ",\"url\":" + Q(Product.Url) + "}};", "application/javascript; charset=utf-8");
                 else if (rest.StartsWith("js/") && rest.IndexOf("..") < 0 && rest.EndsWith(".js"))
                 {
                     byte[] b = Res(rest);
