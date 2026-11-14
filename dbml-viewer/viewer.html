@@ -5,9 +5,9 @@
 <title>DBML Viewer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--bg:#0f1218;--dot:#252c3a;--card:#1b212c;--cardb:#2c3546;--txt:#dfe5ee;--mut:#8591a5;--line:#6f7f9c;--hl:#4da3ff;--rowh:#242c3a;--hd:#2d6cdf;--bar:#161b24;--barb:#262e3d;--btn:#222a38;--btnh:#2c3647;--pk:#f5c04a;--fk:#5db2ff;
- --ed:#121620;--gut:#586277;--tc:#6a7a8f;--ts:#a5d6a7;--tk:#c792ea;--tt:#82aaff;--ta:#ffcb6b;--tn:#f78c6c;--to:#89ddff;--tp:#8a96ad;--tq:#e6edf7;--band:rgba(77,163,255,.10);--sw:440px;--new:#3fb950;--chg:#e3a008;--gone:#f85149}
-body.light{--bg:#f3f5f9;--dot:#d5dbe6;--card:#ffffff;--cardb:#cdd5e2;--txt:#1d2433;--mut:#6a7588;--line:#8190aa;--hl:#1f6feb;--rowh:#eef2f8;--bar:#ffffff;--barb:#dbe1ec;--btn:#f0f3f8;--btnh:#e3e9f3;--pk:#b7791f;--fk:#1f6feb;
+:root{--bg:#0f1218;--dot:#252c3a;--card:#1b212c;--cardb:#2c3546;--txt:#dfe5ee;--mut:#8591a5;--line:#6f7f9c;--hl:#4da3ff;--rowh:#242c3a;--hd:#34496b;--enumt:#cdb4ff;--bar:#161b24;--barb:#262e3d;--btn:#222a38;--btnh:#2c3647;
+ --ed:#121620;--gut:#586277;--tc:#6a7a8f;--ts:#a5d6a7;--tk:#c792ea;--tt:#82aaff;--ta:#ffcb6b;--tn:#f78c6c;--to:#89ddff;--tp:#8a96ad;--tq:#e6edf7;--band:rgba(77,163,255,.10);--sw:440px;--new:#3fb950;--chg:#d9a21b;--gone:#f0605a}
+body.light{--bg:#f3f5f9;--dot:#d5dbe6;--card:#ffffff;--cardb:#cdd5e2;--txt:#1d2433;--mut:#6a7588;--line:#8190aa;--hl:#1f6feb;--rowh:#eef2f8;--bar:#ffffff;--barb:#dbe1ec;--btn:#f0f3f8;--btnh:#e3e9f3;
  --ed:#fbfcfe;--gut:#9aa5b8;--tc:#8a94a6;--ts:#2e7d32;--tk:#8e24aa;--tt:#1565c0;--ta:#b26a00;--tn:#d84315;--to:#00838f;--tp:#6b768b;--tq:#1d2433;--band:rgba(31,111,235,.09);--new:#1a7f37;--chg:#9a6700;--gone:#cf222e}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font:13px/1.35 "Segoe UI",system-ui,sans-serif}
@@ -22,7 +22,7 @@ button{font:inherit;color:var(--txt);background:var(--btn);border:1px solid var(
 button:hover{background:var(--btnh)}
 button.pri{background:var(--hl);border-color:var(--hl);color:#fff}
 button.pri:disabled{opacity:.45;cursor:default}
-#bSide.on{border-color:var(--hl);color:var(--hl)}
+#bSide.on,#bLegend.on{border-color:var(--hl);color:var(--hl)}
 #zoom{min-width:44px;text-align:center;color:var(--mut)}
 #saveState{color:var(--mut);font-size:12px;white-space:nowrap}
 #saveState.bad{color:#ff6b5e}
@@ -61,50 +61,79 @@ body.noside #vp{left:0}
 .edge.hl path{stroke:var(--hl);stroke-width:2.2}
 .edge.dim{opacity:.12}
 .tbl{position:absolute;min-width:190px;background:var(--card);border:1px solid var(--cardb);border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.28);user-select:none;-webkit-user-select:none;cursor:grab;overflow:hidden}
-.tbl.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.45);border-color:var(--hl)}
+.tbl.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .tbl.dim{opacity:.3}
-/* ---- migration (modo .ts): vem antes de .cur/.sel para a seleção azul prevalecer na borda ---- */
-.tbl.mig-new{border:1px dashed var(--new)}
-.tbl.mig-changed{border:1px dashed var(--chg)}
-.hd .mg{font-weight:700;font-size:9px;letter-spacing:.05em;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.22);opacity:1;align-self:center}
-.rw.mig-new{background:color-mix(in srgb,var(--new) 16%,transparent);box-shadow:inset 3px 0 0 var(--new)}
-.rw.mig-changed{background:color-mix(in srgb,var(--chg) 16%,transparent);box-shadow:inset 3px 0 0 var(--chg)}
-.rw.gone{opacity:.75;color:var(--gone);box-shadow:inset 3px 0 0 var(--gone)}
+/* Um significado por canal visual:
+   BORDA = estado de migration (verde nova, âmbar alterada, vermelha tracejada removida);
+   TÍTULO = tipo (claro: tabela, lilás: enum); CABEÇALHO = schema (tons sóbrios, definidos no app.js);
+   ANEL em volta = seleção (azul) ou busca (claro). O anel não mexe na borda, então os dois convivem. */
+.tbl.mig-new{border:2px solid var(--new)}
+.tbl.mig-changed{border:2px solid var(--chg)}
+.tbl.mig-gone{border:2px dashed var(--gone)}
+.tbl.mig-gone .hd span:first-child,.tbl.mig-gone .cn{text-decoration:line-through}
+.tbl.mig-gone .rw{color:var(--mut)}
+.hd .mg{font-weight:700;font-size:9px;letter-spacing:.05em;padding:1px 5px;border-radius:3px;color:#10151d;opacity:1;align-self:center}
+.mig-new .mg{background:var(--new)}.mig-changed .mg{background:var(--chg)}.mig-gone .mg{background:var(--gone)}
+.rw.mig-new{box-shadow:inset 3px 0 0 var(--new)}
+.rw.mig-changed{box-shadow:inset 3px 0 0 var(--chg)}
+.rw.gone{color:var(--mut);box-shadow:inset 3px 0 0 var(--gone)}
 .rw.gone .cn{text-decoration:line-through}
-.tbl.cur{border-color:var(--hl)}
-.tbl.sel{border-color:var(--hl);box-shadow:0 0 0 2px color-mix(in srgb,var(--hl) 45%,transparent)}
-.tbl.match{border-color:#ffb020;box-shadow:0 0 0 2px rgba(255,176,32,.5)}
+.tbl.match{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--txt)}
+.tbl.sel{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--hl)}
 .hd{padding:7px 12px;background:var(--hd);color:#fff;font-weight:600;font-size:13px;white-space:nowrap;display:flex;gap:6px;align-items:baseline}
 .hd small{font-weight:400;opacity:.75;font-size:11px}
+.tbl.enum .hd span:first-child{color:var(--enumt)}
 .rw{display:flex;align-items:center;gap:12px;padding:4px 12px;border-top:1px solid var(--cardb);font-size:12px;white-space:nowrap}
 .rw:hover{background:var(--rowh)}
 .cn{flex:1}
 .ty{color:var(--mut);font-family:Consolas,"Cascadia Mono",monospace;font-size:11px}
 .bd{font-size:9px;font-weight:700;border-radius:3px;padding:0 4px;line-height:14px;border:1px solid currentColor}
-.bd.pk{color:var(--pk)}.bd.fk{color:var(--fk)}
-.tbl.enum .hd{background:#7c4dbb}
+.bd.pk{color:var(--bg);background:var(--txt);border-color:var(--txt)}.bd.fk{color:var(--mut)}
 .tbl.enum .rw .cn{font-family:Consolas,monospace}
 #status{position:fixed;left:calc(var(--sw) + 12px);bottom:10px;z-index:900;color:var(--mut);font-size:12px;background:var(--bar);border:1px solid var(--barb);border-radius:6px;padding:4px 10px;max-width:60vw}
 body.noside #status{left:12px}
-#legend{position:fixed;right:12px;top:58px;z-index:900;width:300px;max-height:calc(100vh - 110px);overflow:auto;background:var(--bar);border:1px solid var(--barb);border-radius:8px;padding:6px 12px 10px;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
-#legend h4{margin:8px 0 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+#legend{display:none;position:fixed;right:12px;top:58px;z-index:900;width:300px;max-height:calc(100vh - 110px);overflow:auto;background:var(--bar);border:1px solid var(--barb);border-radius:8px;padding:6px 12px 10px;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+#legend h4{margin:10px 0 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+#legend h4 b{color:var(--txt)}
 .lg{display:flex;align-items:center;gap:10px;padding:3px 0}
 .lg code{font-family:Consolas,monospace}
 .lg.note{display:block;color:var(--mut);padding-top:6px}
-.lg .sw{display:inline-block;width:34px;height:14px;border-radius:3px;flex:none}
-.lg .bd{flex:none;width:22px;text-align:center}
+.lg .sw{display:inline-block;width:34px;height:16px;border-radius:3px;flex:none;margin:0 3px;background:var(--hd)}
+.lg .bd{flex:none;width:34px;margin:0 3px;text-align:center}
+.lg svg{flex:none;margin:0 3px}
 .sw.box{background:var(--card);border:1px solid var(--cardb)}
-.sw.box.sel{border-color:var(--hl);box-shadow:0 0 0 2px color-mix(in srgb,var(--hl) 45%,transparent)}
-.sw.box.match{border-color:#ffb020;box-shadow:0 0 0 2px rgba(255,176,32,.5)}
-.sw.box.mg-new{border:1px dashed var(--new)}
-.sw.box.mg-changed{border:1px dashed var(--chg)}
+.sw.box.sel{box-shadow:0 0 0 1px var(--bar),0 0 0 3px var(--hl)}
+.sw.box.match{box-shadow:0 0 0 1px var(--bar),0 0 0 3px var(--txt)}
+.sw.box.mg-new{border:2px solid var(--new)}
+.sw.box.mg-changed{border:2px solid var(--chg)}
+.sw.box.mg-gone{border:2px dashed var(--gone)}
+.sw.ttl{color:#fff;font-weight:600;font-size:10px;line-height:16px;text-align:center;font-style:normal}
+.sw.ttl.en{color:var(--enumt)}
 .sw.row{background:var(--card);border:1px solid var(--cardb);border-radius:0}
-.sw.row.mg-new{background:color-mix(in srgb,var(--new) 16%,var(--card));box-shadow:inset 3px 0 0 var(--new)}
-.sw.row.mg-changed{background:color-mix(in srgb,var(--chg) 16%,var(--card));box-shadow:inset 3px 0 0 var(--chg)}
-.sw.row.gone{box-shadow:inset 3px 0 0 var(--gone);background:linear-gradient(var(--gone),var(--gone)) center/60% 1px no-repeat,var(--card)}
+.sw.row.mg-new{box-shadow:inset 3px 0 0 var(--new)}
+.sw.row.mg-changed{box-shadow:inset 3px 0 0 var(--chg)}
+.sw.row.mg-gone{box-shadow:inset 3px 0 0 var(--gone);background:linear-gradient(var(--mut),var(--mut)) center/50% 1px no-repeat,var(--card)}
 .leg-ts{display:none}
 body.ts .leg-ts{display:block}
 body.ts .leg-dbml{display:none}
+.hd .dt{margin-left:auto;align-self:center;font-size:10px;line-height:14px;padding:0 7px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:4px}
+.hd .dt:hover{background:rgba(255,255,255,.24)}
+/* ---- painel Detalhes ---- */
+#detail{display:none;position:fixed;right:12px;top:58px;bottom:48px;width:340px;z-index:920;flex-direction:column;background:var(--bar);border:1px solid var(--barb);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.3);font-size:12px}
+body.det #legend{right:364px}
+#detail header{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-bottom:1px solid var(--barb);flex:none}
+#dtTitle{font-size:14px}
+#dtSub{color:var(--mut);font-size:11px;margin-top:2px}
+#dtClose{margin-left:auto;padding:0 8px;font-size:16px;line-height:22px}
+#dtBody{overflow:auto;padding:0 12px 12px}
+#dtBody h5{margin:14px 0 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.it{padding:6px 0;border-top:1px solid var(--cardb)}
+.it .sub,#dtBody .sub{color:var(--mut);font-size:11px;margin-top:1px}
+#dtBody code{font-family:Consolas,"Cascadia Mono",monospace;font-size:11px;word-break:break-word}
+.kv{display:flex;gap:8px;padding:2px 0}
+.kv span:first-child{color:var(--mut);width:100px;flex:none}
+a.lk{color:var(--hl);cursor:pointer;text-decoration:underline dotted}
+.tag{font-size:10px;border:1px solid var(--cardb);border-radius:3px;padding:0 5px;margin-left:6px}
 #hint{position:fixed;right:12px;bottom:10px;z-index:900;color:var(--mut);font-size:12px;background:var(--bar);border:1px solid var(--barb);border-radius:6px;padding:4px 10px}
 #empty{position:fixed;left:var(--sw);right:0;top:46px;bottom:0;display:none;align-items:center;justify-content:center;z-index:700;color:var(--mut);font-size:16px;text-align:center;pointer-events:none}
 body.noside #empty{left:0}
@@ -123,7 +152,7 @@ body.noside #ext{left:12px}
   <button id="bFit" title="Enquadrar tudo (tecla 0)">Ajustar</button>
   <button id="bOrg" title="Descarta suas posições e organiza automaticamente">Reorganizar</button>
   <button id="bMinus">−</button><span id="zoom">100%</span><button id="bPlus">+</button>
-  <button id="bLegend" class="on" title="Mostrar/ocultar a legenda">Legenda</button>
+  <button id="bLegend" title="Mostrar/ocultar a legenda">Legenda</button>
   <button id="bTheme">Tema</button>
   <button id="bOpen">Abrir…</button>
   <input id="file" type="file" accept=".dbml,.ts,.txt" hidden>
@@ -146,26 +175,40 @@ body.noside #ext{left:12px}
 <div id="empty">Abra um arquivo .dbml ou comece a escrever no editor</div>
 <div id="ext"><span>O arquivo foi alterado em disco.</span><button id="extReload">Recarregar do disco</button><button id="extKeep">Manter o meu</button></div>
 <div id="legend">
-  <h4>Legenda</h4>
-  <div class="lg"><i class="sw" style="background:var(--hd)"></i>Tabela</div>
-  <div class="lg"><i class="sw" style="background:#7c4dbb"></i>Enum (valores fixos)</div>
-  <div class="lg leg-dbml"><i class="sw" style="background:linear-gradient(90deg,#d6457a,#e0a030)"></i>Cor própria (<code>headercolor</code> no DBML)</div>
+  <div class="leg-ts">
+    <h4><b>Borda</b> · migration pendente</h4>
+    <div class="lg"><i class="sw box"></i>Igual à última migration gerada</div>
+    <div class="lg"><i class="sw box mg-new"></i>Nova</div>
+    <div class="lg"><i class="sw box mg-changed"></i>Alterada</div>
+    <div class="lg"><i class="sw box mg-gone"></i>Removida do schema.ts</div>
+    <div class="lg note">Compara com o snapshot do Drizzle (última migration <b>gerada</b>); não diz se já foi aplicada no banco.</div>
+  </div>
+  <h4><b>Título</b> · tipo</h4>
+  <div class="lg"><i class="sw ttl">Aa</i>Tabela</div>
+  <div class="lg"><i class="sw ttl en">Aa</i>Enum (valores fixos)</div>
+  <h4><b>Cabeçalho</b> · schema</h4>
+  <div class="lg" id="legSchemaOne"><i class="sw"></i>Um schema só: mesma cor em tudo</div>
+  <div id="legSchemas"></div>
+  <div class="lg note leg-dbml">No DBML, <code>headercolor</code> troca a cor do cabeçalho.</div>
+  <h4><b>Colunas</b></h4>
   <div class="lg"><span class="bd pk">PK</span>Chave primária</div>
   <div class="lg"><span class="bd fk">FK</span>Chave estrangeira</div>
+  <div class="leg-ts">
+    <div class="lg"><i class="sw row mg-new"></i>Coluna nova</div>
+    <div class="lg"><i class="sw row mg-changed"></i>Tipo, null ou PK alterado</div>
+    <div class="lg"><i class="sw row mg-gone"></i>Coluna removida</div>
+  </div>
+  <h4><b>Linhas</b></h4>
   <div class="lg"><svg width="34" height="12"><path d="M0 6H34" stroke="var(--line)" stroke-width="1.5"/></svg>Relação (muitos → um)</div>
   <div class="lg"><svg width="34" height="12"><path d="M0 6H34" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/></svg>Coluna usa um enum</div>
-  <div class="lg"><i class="sw box sel"></i>Selecionada (clique, ou cursor no código)</div>
+  <h4><b>Anel</b> · destaque</h4>
+  <div class="lg"><i class="sw box sel"></i>Selecionada (clique ou cursor no código)</div>
   <div class="lg"><i class="sw box match"></i>Resultado da busca</div>
-  <div class="leg-ts">
-    <h4>Migration (vs. snapshot do Drizzle)</h4>
-    <div class="lg"><i class="sw box mg-new"></i>Tabela ou enum nova</div>
-    <div class="lg"><i class="sw box mg-changed"></i>Tabela ou enum alterada</div>
-    <div class="lg"><i class="sw row mg-new"></i>Coluna nova</div>
-    <div class="lg"><i class="sw row mg-changed"></i>Coluna com tipo, null ou PK alterado</div>
-    <div class="lg"><i class="sw row gone"></i>Coluna removida do schema.ts</div>
-    <div class="lg note">Compara só com a última migration <b>gerada</b>; não diz se já foi aplicada no banco.</div>
-  </div>
 </div>
+<aside id="detail">
+  <header><div><b id="dtTitle"></b><div id="dtSub"></div></div><button id="dtClose" title="Fechar (Esc)">×</button></header>
+  <div id="dtBody"></div>
+</aside>
 <div id="status"></div>
 <div id="hint">Clique numa tabela para ir ao código · arraste para organizar · roda: zoom</div>
 

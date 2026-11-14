@@ -43,18 +43,19 @@ function parseDrizzle(src) {
   const stmts = tsParse(src);
   const warnings = [], edges = [];
   const schemaVars = new Map(), enumByVar = new Map(), tableByVar = new Map();
-  const tables = [], enums = [], pendingFks = [];
+  const tables = [], enums = [], pendingFks = [], tableDefs = [];
+  const declared = new Map(), fullNames = new Map(); // para avisar de variável ou tabela repetida
 
   // Passagem 1: schemas, enums e o esqueleto das tabelas (uma tabela pode referenciar outra declarada depois)
   const defs = [];
   for (const s of stmts) {
-    const { base } = tsChain(s.init);
+    const { base, mods } = tsChain(s.init);
     if (!base || base.t !== 'call') continue;
     const c = base.callee;
     if (c.t === 'id' && c.name === 'pgSchema' && base.args[0] && base.args[0].t === 'str') { schemaVars.set(s.name, base.args[0].v); continue; }
-    defs.push({ s, base, c });
+    defs.push({ s, base, c, mods });
   }
-  for (const { s, base, c } of defs) {
+  for (const { s, base, c, mods } of defs) {
     let kind = null, schema = 'public';
     if (c.t === 'id' && c.name === 'pgTable') kind = 'table';
     else if (c.t === 'id' && c.name === 'pgEnum') kind = 'enum';
@@ -63,18 +64,25 @@ function parseDrizzle(src) {
     const name = base.args[0] && base.args[0].t === 'str' ? base.args[0].v : null;
     if (name == null) { warnings.push(`Linha ${s.line}: ${kind === 'table' ? 'tabela' : 'enum'} sem nome em texto`); continue; }
     const node = { kind, name, schema, full: schema + '.' + name, alias: null, color: null, note: null, line: s.line, endLine: s.endLine, varName: s.name };
+    if (declared.has(s.name)) warnings.push(`Linha ${s.line}: a variável "${s.name}" já foi declarada na linha ${declared.get(s.name)}`);
+    else declared.set(s.name, s.line);
+    const fk = kind + ':' + node.full;
+    if (fullNames.has(fk)) warnings.push(`Linha ${s.line}: ${kind === 'table' ? 'tabela' : 'enum'} "${node.full}" repetida (já está na linha ${fullNames.get(fk)})`);
+    else fullNames.set(fk, s.line);
     if (kind === 'enum') {
       const arr = base.args[1];
       node.values = (arr && arr.t === 'arr' ? arr.items : []).filter(v => v.t === 'str').map(v => ({ name: v.v, note: null }));
       enums.push(node); enumByVar.set(s.name, node);
     } else {
-      Object.assign(node, { cols: [], indexes: [], checks: [], keyToCol: {} });
-      tables.push(node); tableByVar.set(s.name, { node, base });
+      // rls: tabela com .enableRLS(); fks: chaves estrangeiras que saem desta tabela (com ON DELETE/UPDATE)
+      Object.assign(node, { cols: [], indexes: [], checks: [], keyToCol: {}, fks: [], rls: mods.some(m => m.name === 'enableRLS') });
+      tables.push(node); tableDefs.push({ node, base });
+      if (!tableByVar.has(s.name)) tableByVar.set(s.name, { node, base }); // referências apontam para a primeira declaração
     }
   }
 
-  // Passagem 2: colunas e extras de cada tabela
-  for (const { node: t, base } of tableByVar.values()) {
+  // Passagem 2: colunas e extras de cada tabela (pela lista, para as repetidas também ganharem colunas)
+  for (const { node: t, base } of tableDefs) {
     const colsObj = base.args[1];
     if (!colsObj || colsObj.t !== 'obj') { warnings.push(`Linha ${t.line}: colunas de "${t.name}" não estão num objeto literal`); }
     else for (const prop of colsObj.props) readColumn(t, prop);
@@ -119,7 +127,8 @@ function parseDrizzle(src) {
         case 'generatedAlwaysAsIdentity': case 'generatedByDefaultAsIdentity': col.inc = true; break;
         case 'references': {
           const ref = tsColumnRef(m.args[0]);
-          if (ref) pendingFks.push({ t, childKeys: [prop.key], parentVar: ref.owner, parentKeys: [ref.key], line: m.line });
+          const act = k => { const v = tsObjProp(m.args[1], k); return v && v.t === 'str' ? v.v : null; }; // references(() => x.id, { onDelete: 'cascade' })
+          if (ref) pendingFks.push({ t, childKeys: [prop.key], parentVar: ref.owner, parentKeys: [ref.key], line: m.line, onDelete: act('onDelete'), onUpdate: act('onUpdate'), name: null });
           else warnings.push(`Linha ${m.line}: references() de "${prop.key}" não reconhecido`);
           break;
         }
@@ -164,7 +173,10 @@ function parseDrizzle(src) {
       case 'foreignKey': {
         const cfg = base.args[0], child = keysOf(tsObjProp(cfg, 'columns')), parent = keysOf(tsObjProp(cfg, 'foreignColumns'));
         if (!child.length || !parent.length) { warnings.push(`Linha ${base.line}: foreignKey sem columns/foreignColumns reconhecíveis`); break; }
-        pendingFks.push({ t, childKeys: child.map(k => k.key), parentVar: parent[0].owner, parentKeys: parent.map(k => k.key), line: base.line });
+        const act = n => { const m = mods.find(x => x.name === n); return m && m.args[0] && m.args[0].t === 'str' ? m.args[0].v : null; }; // foreignKey({...}).onDelete("cascade")
+        const nm = tsObjProp(cfg, 'name');
+        pendingFks.push({ t, childKeys: child.map(k => k.key), parentVar: parent[0].owner, parentKeys: parent.map(k => k.key), line: base.line,
+          onDelete: act('onDelete'), onUpdate: act('onUpdate'), name: nm && nm.t === 'str' ? nm.v : null });
         break;
       }
       case 'check': t.checks.push({ name: nameArg ? nameArg.v : '(sem nome)', expr: tsText(base.args[1]) }); break;
@@ -178,10 +190,14 @@ function parseDrizzle(src) {
     if (!parentEntry) { warnings.push(`Linha ${f.line}: relação ignorada (tabela "${f.parentVar}" não encontrada)`); continue; }
     const P = parentEntry.node, name = (tbl, k) => (tbl.keyToCol[k] ? tbl.keyToCol[k].name : k);
     for (const k of f.childKeys) if (f.t.keyToCol[k]) f.t.keyToCol[k].fk = true;
-    edges.push({ a: f.t, aCols: f.childKeys.map(k => name(f.t, k)), b: P, bCols: f.parentKeys.map(k => name(P, k)), ca: '*', cb: '1', kind: 'ref', line: f.line });
+    const aCols = f.childKeys.map(k => name(f.t, k)), bCols = f.parentKeys.map(k => name(P, k));
+    edges.push({ a: f.t, aCols, b: P, bCols, ca: '*', cb: '1', kind: 'ref', line: f.line });
+    f.t.fks.push({ name: f.name, cols: aCols, parent: P, parentCols: bCols, onDelete: f.onDelete, onUpdate: f.onUpdate, line: f.line });
   }
 
   const nodes = [...tables, ...enums];
-  for (const n of nodes) n.id = n.kind + ':' + n.full;
+  // id único mesmo com tabela repetida: a segunda vira "table:schema.nome#2"
+  const used = new Map();
+  for (const n of nodes) { const k = n.kind + ':' + n.full, c = (used.get(k) || 0) + 1; used.set(k, c); n.id = c > 1 ? k + '#' + c : k; }
   return { nodes, edges, groups: [], warnings };
 }

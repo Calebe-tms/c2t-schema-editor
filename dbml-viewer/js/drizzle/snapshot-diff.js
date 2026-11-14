@@ -1,6 +1,7 @@
 'use strict';
 /* Compara o modelo lido do schema.ts com o snapshot mais recente do Drizzle (drizzle/meta/NNNN_snapshot.json),
    ou seja, com a última migration já GERADA. Marca nos nós: mig = 'new' | 'changed', migCols (por coluna) e migGone (colunas removidas).
+   Devolve em `removed` os nós fantasma (mig = 'gone') das tabelas e enums que saíram do schema.ts.
    Não diz se a migration foi aplicada no banco: isso só o banco sabe. */
 
 // Notações diferentes do mesmo tipo: 'timestamp with time zone' (snapshot) x 'timestamptz' (schema.ts), 'numeric(10, 2)' x 'numeric(10,2)'
@@ -27,7 +28,7 @@ function diffSnapshot(model, snap) {
     }
     seenTables.add(n.full);
     const old = snap.tables[n.full];
-    if (!old) { n.mig = 'new'; out.new++; for (const c of n.cols) n.migCols[c.name] = 'new'; continue; }
+    if (!old) { n.mig = 'new'; out.new++; continue; } // tabela nova: a borda já diz tudo, não marca coluna por coluna
     const oldCols = old.columns || {};
     // chave primária composta fica em compositePrimaryKeys, não em primaryKey da coluna
     const compositePk = new Set(Object.values(old.compositePrimaryKeys || {}).flatMap(k => k.columns || []));
@@ -39,7 +40,16 @@ function diffSnapshot(model, snap) {
     n.migGone = Object.keys(oldCols).filter(k => !n.cols.some(c => c.name === k));
     if (n.migGone.length || Object.keys(n.migCols).length) { n.mig = 'changed'; out.changed++; }
   }
-  for (const k of Object.keys(snap.tables)) if (!seenTables.has(k)) out.removed.push(k);
-  for (const k of Object.keys(snap.enums || {})) if (!seenEnums.has(k)) out.removed.push(k + ' (enum)');
+  // O que está no snapshot e saiu do schema.ts vira um nó "fantasma" (mig = 'gone'), sem linha no código
+  const ghost = (kind, full, o, extra) => Object.assign({ kind, name: o.name, schema: o.schema || '', full, id: kind + ':' + full, alias: null, color: null, note: null,
+    line: 0, endLine: 0, mig: 'gone', migCols: {}, migGone: [] }, extra);
+  for (const k of Object.keys(snap.tables)) if (!seenTables.has(k)) {
+    const o = snap.tables[k], pk = new Set(Object.values(o.compositePrimaryKeys || {}).flatMap(x => x.columns || []));
+    out.removed.push(ghost('table', k, o, { indexes: [], cols: Object.values(o.columns || {}).map(c => ({ name: c.name, type: snapType(c.type),
+      pk: !!c.primaryKey || pk.has(c.name), notnull: !!c.notNull, unique: false, inc: false, def: c.default != null ? String(c.default) : null, note: null, fk: false })) }));
+  }
+  for (const k of Object.keys(snap.enums || {})) if (!seenEnums.has(k)) {
+    const o = snap.enums[k]; out.removed.push(ghost('enum', k, o, { values: (o.values || []).map(v => ({ name: v, note: null })) }));
+  }
   return out;
 }

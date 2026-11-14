@@ -49,9 +49,22 @@ O modo é escolhido pela extensão do arquivo. No modo `.ts`:
 - Índices e checks aparecem na dica (passar o mouse) do cabeçalho de cada tabela.
 - Não é um parser completo de TypeScript. Construções fora do padrão do `drizzle-kit pull` são ignoradas; avisos aparecem na barra de status e erros de sintaxe (aspas, chaves) mostram a linha.
 - O `Ctrl+S` grava o texto direto no arquivo. Depois de salvar é preciso gerar a migration (`drizzle-kit generate`) como de costume: o editor não toca no banco.
-- **Pendências de migration:** o servidor lê o snapshot mais recente em `meta/NNNN_snapshot.json` (pasta `meta` ao lado do `schema.ts`) e o diagrama marca o que o `schema.ts` tem de diferente: tabela/enum **nova** ou **alterada** (borda tracejada verde/âmbar e selo no cabeçalho), colunas novas/alteradas (tipo, null ou PK) e colunas removidas (riscadas). Tabelas removidas aparecem na barra de status. A comparação é só com a última migration **gerada**: não diz se ela já foi aplicada no banco. Ao voltar para a janela o snapshot é relido (útil depois do `drizzle-kit generate`).
+- **Pendências de migration:** o servidor lê o snapshot mais recente em `meta/NNNN_snapshot.json` (pasta `meta` ao lado do `schema.ts`) e o diagrama marca o que o `schema.ts` tem de diferente: tabela/enum **nova** (borda verde), **alterada** (borda âmbar) ou **removida** do `schema.ts` (cartão fantasma de borda vermelha tracejada), sempre com um selo no cabeçalho; colunas novas/alteradas (tipo, null ou PK) e removidas ganham uma barra lateral na mesma cor. A comparação é só com a última migration **gerada**: não diz se ela já foi aplicada no banco. Ao voltar para a janela o snapshot é relido (útil depois do `drizzle-kit generate`).
 - Cursor ou clique no código dentro de uma tabela marca a tabela no diagrama (como o clique nela) e a traz para a vista se estiver fora.
-- O botão **Legenda** mostra/oculta a legenda de cores, selos, linhas e marcações de migration.
+- O botão **Detalhes** no cabeçalho de cada tabela (e de cada enum) abre um painel à direita com o que não cabe no cartão: se a tabela tem RLS (`.enableRLS()`), chaves estrangeiras que saem e as que chegam (com `ON DELETE`/`ON UPDATE`, ou "NO ACTION (padrão)" quando não declarados), índices (únicos, parciais, de expressão) e checks. Nos enums mostra os valores e as colunas que os usam. Os nomes de tabela no painel são links para o diagrama; `Esc` fecha. Só no modo `.ts`.
+- Variável ou tabela declarada duas vezes vira aviso na barra de status (com as linhas) e as duas aparecem no diagrama.
+- O botão **Legenda** mostra/oculta a legenda (oculta por padrão).
+
+### Cores: um significado por canal
+
+| Canal | O que diferencia |
+|---|---|
+| **Borda** do cartão | estado de migration: neutra (igual ao snapshot), verde (nova), âmbar (alterada), vermelha tracejada (removida) |
+| **Título** | tipo: claro = tabela, lilás + "enum" = enum |
+| **Cabeçalho** (fundo) | schema: um tom sóbrio por schema (no DBML, `headercolor` prevalece) |
+| **Anel** em volta | destaque: azul = selecionada, claro = resultado da busca |
+
+O anel não usa a borda, então uma tabela nova continua verde mesmo selecionada. PK e FK são selos neutros, sem cor própria.
 
 ## Estrutura
 
