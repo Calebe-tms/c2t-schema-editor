@@ -124,7 +124,12 @@ static class App
                     string snap = full.EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? LatestSnapshot(full) : null;
                     if (snap != null) Bytes(ctx, 200, File.ReadAllBytes(snap), Json); else Text(ctx, 200, "null", Json);
                 }
-                else if (rest == "ping") Text(ctx, 200, "{\"mtime\":" + Mtime(full) + "}", Json);
+                else if (rest == "favicon.png")
+                {
+                    byte[] ic = Res("favicon.png");
+                    if (ic != null) Bytes(ctx, 200, ic, "image/png"); else Text(ctx, 404, "not found", "text/plain");
+                }
+                else if (rest == "ping") Text(ctx, 200,"{\"mtime\":" + Mtime(full) + "}", Json);
                 else if (rest == "bye") { Text(ctx, 200, "{}", Json); byeAt = DateTime.Now.AddSeconds(8); }
                 else if (rest == "layout" || rest == "prefs")
                 {

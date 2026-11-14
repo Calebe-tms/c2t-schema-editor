@@ -12,7 +12,7 @@ $manifest = Join-Path $root 'app.manifest'
 $name = [regex]::Match((Get-Content $product -Raw), 'Name\s*=\s*"([^"]+)"').Groups[1].Value
 if (-not $name) { throw 'Nome do produto não encontrado em Product.cs' }
 
-# ---- ícone: círculo escuro com um banco de dados e um "c" como expoente, desenhado em cada tamanho (16 a 256) ----
+# ---- ícone: círculo escuro com um "c" feito de camadas de banco de dados, desenhado em cada tamanho (16 a 256) ----
 Add-Type -AssemblyName System.Drawing
 function IconPng($size) {
     $bmp = New-Object Drawing.Bitmap $size, $size
@@ -21,25 +21,17 @@ function IconPng($size) {
     $g.ScaleTransform($size / 256, $size / 256)   # o desenho é feito numa grade de 256
     # círculo escuro, chapado (sem degradê nem efeitos)
     $g.FillEllipse((New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb(15, 18, 22))), 4, 4, 248, 248)
-    # ícone de banco de dados: três discos empilhados (cada um é elipse de cima + corpo + elipse de baixo), em dois tons de ciano
+    # a letra "c" é um arco grosso aberto à direita, fatiado em três camadas como um banco de dados (dois tons de ciano)
     $light = [Drawing.Color]::FromArgb(86, 204, 242); $mid = [Drawing.Color]::FromArgb(24, 150, 214)
-    $darkBrush = New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb(15, 18, 22))
-    $x = 44; $w = 120; $ry = 15; $h = 34; $gap = if ($size -lt 32) { 12 } else { 8 }
-    # desenha de baixo para cima: cada disco leva um contorno escuro (o corte) por cima do que está embaixo
-    $discs = @(@(154, $mid), @(112, $mid), @(70, $light))
-    foreach ($d in $discs) {
-        foreach ($pass in @($gap, 0)) {
-            $r = New-Object Drawing.Region (New-Object Drawing.RectangleF ($x - $pass), $d[0], ($w + 2 * $pass), $h)
-            foreach ($cy in @($d[0], ($d[0] + $h))) {
-                $p = New-Object Drawing.Drawing2D.GraphicsPath
-                $p.AddEllipse(($x - $pass), ($cy - $ry - $pass), ($w + 2 * $pass), (2 * $ry + 2 * $pass)); $r.Union($p)
-            }
-            $g.FillRegion($(if ($pass) { $darkBrush } else { New-Object Drawing.SolidBrush $d[1] }), $r)
-        }
-    }
-    # "c" pequeno no canto de cima, como um expoente (banco elevado a c): arco grosso aberto à direita; some nos tamanhos minúsculos
-    if ($size -ge 32) {
-        $g.DrawArc((New-Object Drawing.Pen $light, 10), 174, 46, 36, 36, 40, 280)
+    $gap = 10; $top = 47; $bottom = 209; $band = ($bottom - $top - 2 * $gap) / 3
+    $bands = @(@($top, $light), @(($top + $band + $gap), $mid), @(($top + 2 * ($band + $gap)), $light))
+    if ($size -lt 32) { $bands = @(, @(0, $light)); $band = 256 }   # nos tamanhos minúsculos os cortes virariam borrão: o "c" sai inteiro
+    $ring = New-Object Drawing.RectangleF 66, 66, 124, 124
+    foreach ($b in $bands) {
+        $pen = New-Object Drawing.Pen $b[1], 38
+        $g.SetClip((New-Object Drawing.RectangleF 0, $b[0], 256, $band))
+        $g.DrawArc($pen, $ring, 45, 270)
+        $g.ResetClip()
     }
     $ms = New-Object IO.MemoryStream; $bmp.Save($ms, [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()
     return ,$ms.ToArray()
@@ -62,6 +54,8 @@ $bw.Close()
 
 # ---- 1) o app (servidor + páginas embutidas) ----
 $res = @('/res:' + (Join-Path $web 'viewer.html') + ',viewer.html')
+# o ícone do app também vai como favicon da página: é ele que o Chrome mostra na barra de tarefas da janela do app
+$res += '/res:' + (Join-Path $obj 'icon-256.png') + ',favicon.png'
 $jsRoot = (Resolve-Path (Join-Path $web 'js')).Path
 # recursivo: js\*.js e js\drizzle\*.js (o nome do recurso mantém a subpasta, ex.: js/drizzle/ts-parser.js)
 Get-ChildItem $jsRoot -Filter *.js -Recurse | ForEach-Object { $res += '/res:' + $_.FullName + ',js/' + $_.FullName.Substring($jsRoot.Length + 1).Replace('\', '/') }
