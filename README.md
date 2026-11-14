@@ -49,6 +49,9 @@ O modo é escolhido pela extensão do arquivo. No modo `.ts`:
 - Índices e checks aparecem na dica (passar o mouse) do cabeçalho de cada tabela.
 - Não é um parser completo de TypeScript. Construções fora do padrão do `drizzle-kit pull` são ignoradas; avisos aparecem na barra de status e erros de sintaxe (aspas, chaves) mostram a linha.
 - O `Ctrl+S` grava o texto direto no arquivo. Depois de salvar é preciso gerar a migration (`drizzle-kit generate`) como de costume: o editor não toca no banco.
+- **Pendências de migration:** o servidor lê o snapshot mais recente em `meta/NNNN_snapshot.json` (pasta `meta` ao lado do `schema.ts`) e o diagrama marca o que o `schema.ts` tem de diferente: tabela/enum **nova** ou **alterada** (borda tracejada verde/âmbar e selo no cabeçalho), colunas novas/alteradas (tipo, null ou PK) e colunas removidas (riscadas). Tabelas removidas aparecem na barra de status. A comparação é só com a última migration **gerada**: não diz se ela já foi aplicada no banco. Ao voltar para a janela o snapshot é relido (útil depois do `drizzle-kit generate`).
+- Cursor ou clique no código dentro de uma tabela marca a tabela no diagrama (como o clique nela) e a traz para a vista se estiver fora.
+- O botão **Legenda** mostra/oculta a legenda de cores, selos, linhas e marcações de migration.
 
 ## Estrutura
 
@@ -59,6 +62,7 @@ O modo é escolhido pela extensão do arquivo. No modo `.ts`:
 | `dbml-viewer/js/drizzle/ts-parser.js` | tokenizer e árvore de expressões do TypeScript (modo `.ts`) |
 | `dbml-viewer/js/drizzle/drizzle-model.js` | transforma a árvore em tabelas, colunas, enums e relações do Drizzle |
 | `dbml-viewer/js/drizzle/ts-highlight.js` | realce de sintaxe do TypeScript no editor |
+| `dbml-viewer/js/drizzle/snapshot-diff.js` | compara o schema com o snapshot do Drizzle (nova/alterada/removida) |
 | `dbml-viewer/js/layout.js` | organização automática das tabelas |
 | `dbml-viewer/js/editor.js` | editor de código com realce |
 | `dbml-viewer/js/app.js` | diagrama, arrastar, salvar, sincronização código ↔ diagrama |

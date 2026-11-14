@@ -8,7 +8,8 @@ const sv = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for
 const vp = $('#vp'), world = $('#world'), svgEl = $('#edges');
 let model = null, byId = {}, view = { tx: 40, ty: 40, s: 1 }, selected = null, zTop = 10;
 let bandNode = null, caretNode = null, doc = null, ed = null, saveTimer = 0, compileTimer = 0, extPending = false;
-let prefs = { light: false, sw: 440, noside: false };
+let snapshot = null; // snapshot do Drizzle mais recente (só no modo .ts, com o servidor local)
+let prefs = { light: false, sw: 440, noside: false, legend: true };
 const P = window.__DBML__;
 
 /* ============================ persistência ============================ */
@@ -32,6 +33,8 @@ function applyPrefs() {
   document.body.classList.toggle('light', !!prefs.light);
   document.body.classList.toggle('noside', !!prefs.noside);
   $('#bSide').classList.toggle('on', !prefs.noside);
+  $('#legend').style.display = prefs.legend ? 'block' : 'none';
+  $('#bLegend').classList.toggle('on', !!prefs.legend);
   document.documentElement.style.setProperty('--sw', prefs.sw + 'px');
 }
 const savePrefs = () => { applyPrefs(); kv.put('prefs', prefs); };
@@ -60,21 +63,26 @@ function measure(n) {
 function placeNode(n) { n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px'; }
 
 function buildNode(n) {
-  const el = h('div', 'tbl' + (n.kind === 'enum' ? ' enum' : '')); el.dataset.id = n.id;
+  // n.mig (só no modo .ts): 'new' | 'changed' em relação ao snapshot do Drizzle
+  const el = h('div', 'tbl' + (n.kind === 'enum' ? ' enum' : '') + (n.mig ? ' mig-' + n.mig : '')); el.dataset.id = n.id;
   const hd = h('div', 'hd'); if (n.color) hd.style.background = n.color;
   hd.append(h('span', null, n.name)); if (n.schema) hd.append(h('small', null, n.schema));
   if (n.alias) hd.append(h('small', null, 'as ' + n.alias));
-  if (n.note) hd.title = n.note;
+  if (n.mig) hd.append(h('small', 'mg', n.mig === 'new' ? 'NOVA' : 'ALTERADA'));
+  const migTip = n.mig === 'new' ? 'Ainda não está no snapshot do Drizzle: falta gerar a migration.'
+    : n.mig ? 'Diferente do snapshot do Drizzle: falta gerar a migration.' : '';
+  if (n.note || migTip) hd.title = [migTip, n.note].filter(Boolean).join('\n\n');
   el.append(hd);
-  if (n.kind === 'table') for (const c of n.cols) {
-    const r = h('div', 'rw'); r.dataset.col = c.name;
+  const ghosts = () => { for (const g of n.migGone || []) { const r = h('div', 'rw gone'); r.append(h('span', 'cn', g), h('span', 'ty', 'removida')); el.append(r); } };
+  if (n.kind === 'table') { for (const c of n.cols) {
+    const r = h('div', 'rw' + (n.migCols && n.migCols[c.name] ? ' mig-' + n.migCols[c.name] : '')); r.dataset.col = c.name;
     r.append(h('span', 'cn', c.name));
     if (c.pk) r.append(h('span', 'bd pk', 'PK')); if (c.fk) r.append(h('span', 'bd fk', 'FK'));
     r.append(h('span', 'ty', c.type));
     r.title = [`${c.name}: ${c.type}`, [c.pk && 'PK', c.notnull && 'NOT NULL', c.unique && 'UNIQUE', c.inc && 'AUTO INCREMENT'].filter(Boolean).join(', '),
       c.def != null ? 'default: ' + c.def : '', c.note || ''].filter(Boolean).join('\n');
     el.append(r);
-  } else for (const v of n.values) { const r = h('div', 'rw'); r.dataset.col = v.name; r.append(h('span', 'cn', v.name)); if (v.note) r.title = v.note; el.append(r); }
+  } ghosts(); } else { for (const v of n.values) { const r = h('div', 'rw' + (n.migCols && n.migCols[v.name] ? ' mig-' + n.migCols[v.name] : '')); r.dataset.col = v.name; r.append(h('span', 'cn', v.name)); if (v.note) r.title = v.note; el.append(r); } ghosts(); }
   n.el = el; n.hd = hd; world.append(el);
 }
 
@@ -141,10 +149,17 @@ function revealNode(n) {
   if (prefs.noside) { prefs.noside = false; savePrefs(); }
   showBand(n); ed.reveal(n.line, n.endLine);
 }
+// Cursor/clique no código dentro de uma tabela: marca a tabela no diagrama (como o clique nela) e a traz para a vista se estiver fora
+function ensureVisible(n) {
+  const x0 = view.tx + n.x * view.s, y0 = view.ty + n.y * view.s, x1 = x0 + n.w * view.s, y1 = y0 + n.h * view.s, m = 16;
+  if (x0 < m || y0 < m || x1 > vp.clientWidth - m || y1 > vp.clientHeight - m) centerOn(n);
+}
 function onCaretLine(l) {
-  const n = nodeAt(l);
+  const n = nodeAt(l), prev = caretNode;
   if (n !== caretNode) { if (caretNode && caretNode.el) caretNode.el.classList.remove('cur'); caretNode = n; if (n) n.el.classList.add('cur'); }
   showBand(n);
+  if (n && selected !== n) { select(n); ensureVisible(n); }
+  else if (!n && prev && selected === prev) select(null);
 }
 
 /* ---- novas tabelas: posiciona sem sobrepor as existentes ---- */
@@ -183,7 +198,7 @@ function applyModel(m) {
   m.nodes.forEach(placeNode); buildEdges();
   if (selId && byId[selId]) select(byId[selId]);
   const nt = m.nodes.filter(n => n.kind === 'table').length, ne = m.nodes.length - nt;
-  $('#status').textContent = `${nt} tabelas` + (ne ? ` · ${ne} enums` : '') + ` · ${m.edges.filter(e => e.kind === 'ref').length} relações` + (m.warnings.length ? ` · ⚠ ${m.warnings.join(' | ')}` : '');
+  $('#status').textContent = `${nt} tabelas` + (ne ? ` · ${ne} enums` : '') + ` · ${m.edges.filter(e => e.kind === 'ref').length} relações` + migText(m) + (m.warnings.length ? ` · ⚠ ${m.warnings.join(' | ')}` : '');
   $('#empty').style.display = m.nodes.length ? 'none' : 'flex'; $('#empty').textContent = doc.mode === 'ts' ? 'Nenhuma tabela encontrada no código ao lado' : 'Escreva o DBML no editor ao lado';
   if (first) { if (doc.layout && doc.layout.view) { view = doc.layout.view; applyView(); } else fit(); doc.layout = null; }
   runSearch(); onCaretLine(ed.caretLine());
@@ -202,7 +217,24 @@ function compile() {
     if (!model) { $('#empty').style.display = 'flex'; $('#empty').textContent = 'Corrija o erro de sintaxe no código'; }
     return;
   }
+  if (doc && doc.mode === 'ts') m.mig = diffSnapshot(m, snapshot);
   ed.setError(0, null); applyModel(m);
+}
+
+// Compara com o snapshot do Drizzle; devolve true se o snapshot mudou desde a última leitura
+async function loadSnapshot() {
+  if (!backend || !doc || doc.mode !== 'ts') { snapshot = null; return false; }
+  const s = await backend.get('snapshot'), changed = (s && s.id) !== (snapshot && snapshot.id);
+  snapshot = s; return changed;
+}
+function migText(m) {
+  const g = m.mig; if (!g) return '';
+  if (!g.found) return ' · snapshot do Drizzle não encontrado';
+  const p = [];
+  if (g.new) p.push(`${g.new} nova${g.new > 1 ? 's' : ''}`);
+  if (g.changed) p.push(`${g.changed} alterada${g.changed > 1 ? 's' : ''}`);
+  if (g.removed.length) p.push(`removida${g.removed.length > 1 ? 's' : ''} do schema.ts: ${g.removed.join(', ')}`);
+  return p.length ? ' · sem migration: ' + p.join(', ') : ' · igual ao snapshot do Drizzle';
 }
 
 /* ============================ documento ============================ */
@@ -219,6 +251,7 @@ async function loadDocument(text, name, key, extra) {
   clearDiagram(); model = null; selected = null;
   doc.layout = await kv.get('layout');
   ed.setMode(doc.mode); $('#edHead').textContent = doc.mode === 'ts' ? 'Código TypeScript (Drizzle)' : 'Código DBML';
+  document.body.classList.toggle('ts', doc.mode === 'ts'); await loadSnapshot();
   ed.setValue(t); ed.setError(0, null); $('#fname').textContent = name; updateDirty(); setSaveState('');
   compile();
 }
@@ -291,6 +324,9 @@ $('#bMinus').onclick = () => zoomAt(1 / 1.2, vp.clientWidth / 2, vp.clientHeight
 $('#bOrg').onclick = () => { if (!model) return; autoLayout(model.nodes, model.edges); model.nodes.forEach(placeNode); model.edges.forEach(drawEdge); select(null); fit(); };
 $('#bTheme').onclick = () => { prefs.light = !prefs.light; savePrefs(); };
 $('#bSide').onclick = () => { prefs.noside = !prefs.noside; savePrefs(); };
+$('#bLegend').onclick = () => { prefs.legend = !prefs.legend; savePrefs(); };
+// voltando à janela (ex.: depois de rodar drizzle-kit generate) relê o snapshot e remarca o que falta migrar
+addEventListener('focus', async () => { if (doc && doc.mode === 'ts' && ed && await loadSnapshot()) compile(); });
 $('#bSave').onclick = save;
 $('#q').addEventListener('input', runSearch);
 $('#q').addEventListener('keydown', ev => {

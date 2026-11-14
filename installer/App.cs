@@ -100,6 +100,12 @@ static class App
                     if (m == "PUT") { File.WriteAllText(full, Body(ctx), Utf8); Text(ctx, 200, "{\"mtime\":" + Mtime(full) + "}", Json); }
                     else { ctx.Response.Headers.Add("X-Mtime", Mtime(full).ToString()); Bytes(ctx, 200, File.ReadAllBytes(full), "text/plain; charset=utf-8"); }
                 }
+                else if (rest == "snapshot")
+                {
+                    // snapshot mais recente do Drizzle (meta/NNNN_snapshot.json ao lado do schema.ts); "null" se não houver
+                    string snap = full.EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? LatestSnapshot(full) : null;
+                    if (snap != null) Bytes(ctx, 200, File.ReadAllBytes(snap), Json); else Text(ctx, 200, "null", Json);
+                }
                 else if (rest == "ping") Text(ctx, 200, "{\"mtime\":" + Mtime(full) + "}", Json);
                 else if (rest == "bye") { Text(ctx, 200, "{}", Json); byeAt = DateTime.Now.AddSeconds(8); }
                 else if (rest == "layout" || rest == "prefs")
@@ -135,6 +141,16 @@ static class App
             }
         foreach (var c in candidates) if (c != null && File.Exists(c)) return c;
         return null;
+    }
+
+    static string LatestSnapshot(string schemaFile)
+    {
+        string dir = Path.Combine(Path.GetDirectoryName(schemaFile), "meta");
+        if (!Directory.Exists(dir)) return null;
+        string[] files = Directory.GetFiles(dir, "*_snapshot.json");
+        if (files.Length == 0) return null;
+        Array.Sort(files, StringComparer.OrdinalIgnoreCase); // 0000_, 0001_… : o último é o mais recente
+        return files[files.Length - 1];
     }
 
     static byte[] Res(string name)

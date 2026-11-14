@@ -49,6 +49,8 @@ class CodeEditor {
     this.hlFn = highlight; this.indent = '  '; this.ts = false; // modo DBML (padrão) ou TypeScript
     this.ta.addEventListener('input', () => { this.refresh(); cb.onInput(); this.caretCheck(); });
     this.ta.addEventListener('scroll', () => this.syncScroll());
+    // clicar de novo na mesma linha também re-marca a tabela no diagrama (o evento de cursor só dispara ao mudar de linha)
+    this.ta.addEventListener('click', () => { this.lastCaret = -1; this.caretCheck(); });
     this.ta.addEventListener('keydown', ev => this.onKey(ev));
     document.addEventListener('selectionchange', () => { if (document.activeElement === this.ta) this.caretCheck(); });
     this.errBar.addEventListener('click', () => { if (this.errLine) this.reveal(this.errLine, this.errLine, true); });

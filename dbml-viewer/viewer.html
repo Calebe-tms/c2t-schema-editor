@@ -6,9 +6,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{--bg:#0f1218;--dot:#252c3a;--card:#1b212c;--cardb:#2c3546;--txt:#dfe5ee;--mut:#8591a5;--line:#6f7f9c;--hl:#4da3ff;--rowh:#242c3a;--hd:#2d6cdf;--bar:#161b24;--barb:#262e3d;--btn:#222a38;--btnh:#2c3647;--pk:#f5c04a;--fk:#5db2ff;
- --ed:#121620;--gut:#586277;--tc:#6a7a8f;--ts:#a5d6a7;--tk:#c792ea;--tt:#82aaff;--ta:#ffcb6b;--tn:#f78c6c;--to:#89ddff;--tp:#8a96ad;--tq:#e6edf7;--band:rgba(77,163,255,.10);--sw:440px}
+ --ed:#121620;--gut:#586277;--tc:#6a7a8f;--ts:#a5d6a7;--tk:#c792ea;--tt:#82aaff;--ta:#ffcb6b;--tn:#f78c6c;--to:#89ddff;--tp:#8a96ad;--tq:#e6edf7;--band:rgba(77,163,255,.10);--sw:440px;--new:#3fb950;--chg:#e3a008;--gone:#f85149}
 body.light{--bg:#f3f5f9;--dot:#d5dbe6;--card:#ffffff;--cardb:#cdd5e2;--txt:#1d2433;--mut:#6a7588;--line:#8190aa;--hl:#1f6feb;--rowh:#eef2f8;--bar:#ffffff;--barb:#dbe1ec;--btn:#f0f3f8;--btnh:#e3e9f3;--pk:#b7791f;--fk:#1f6feb;
- --ed:#fbfcfe;--gut:#9aa5b8;--tc:#8a94a6;--ts:#2e7d32;--tk:#8e24aa;--tt:#1565c0;--ta:#b26a00;--tn:#d84315;--to:#00838f;--tp:#6b768b;--tq:#1d2433;--band:rgba(31,111,235,.09)}
+ --ed:#fbfcfe;--gut:#9aa5b8;--tc:#8a94a6;--ts:#2e7d32;--tk:#8e24aa;--tt:#1565c0;--ta:#b26a00;--tn:#d84315;--to:#00838f;--tp:#6b768b;--tq:#1d2433;--band:rgba(31,111,235,.09);--new:#1a7f37;--chg:#9a6700;--gone:#cf222e}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font:13px/1.35 "Segoe UI",system-ui,sans-serif}
 #bar{position:fixed;inset:0 0 auto 0;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--bar);border-bottom:1px solid var(--barb);z-index:1000}
@@ -63,6 +63,14 @@ body.noside #vp{left:0}
 .tbl{position:absolute;min-width:190px;background:var(--card);border:1px solid var(--cardb);border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.28);user-select:none;-webkit-user-select:none;cursor:grab;overflow:hidden}
 .tbl.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.45);border-color:var(--hl)}
 .tbl.dim{opacity:.3}
+/* ---- migration (modo .ts): vem antes de .cur/.sel para a seleção azul prevalecer na borda ---- */
+.tbl.mig-new{border:1px dashed var(--new)}
+.tbl.mig-changed{border:1px dashed var(--chg)}
+.hd .mg{font-weight:700;font-size:9px;letter-spacing:.05em;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.22);opacity:1;align-self:center}
+.rw.mig-new{background:color-mix(in srgb,var(--new) 16%,transparent);box-shadow:inset 3px 0 0 var(--new)}
+.rw.mig-changed{background:color-mix(in srgb,var(--chg) 16%,transparent);box-shadow:inset 3px 0 0 var(--chg)}
+.rw.gone{opacity:.75;color:var(--gone);box-shadow:inset 3px 0 0 var(--gone)}
+.rw.gone .cn{text-decoration:line-through}
 .tbl.cur{border-color:var(--hl)}
 .tbl.sel{border-color:var(--hl);box-shadow:0 0 0 2px color-mix(in srgb,var(--hl) 45%,transparent)}
 .tbl.match{border-color:#ffb020;box-shadow:0 0 0 2px rgba(255,176,32,.5)}
@@ -78,6 +86,25 @@ body.noside #vp{left:0}
 .tbl.enum .rw .cn{font-family:Consolas,monospace}
 #status{position:fixed;left:calc(var(--sw) + 12px);bottom:10px;z-index:900;color:var(--mut);font-size:12px;background:var(--bar);border:1px solid var(--barb);border-radius:6px;padding:4px 10px;max-width:60vw}
 body.noside #status{left:12px}
+#legend{position:fixed;right:12px;top:58px;z-index:900;width:300px;max-height:calc(100vh - 110px);overflow:auto;background:var(--bar);border:1px solid var(--barb);border-radius:8px;padding:6px 12px 10px;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+#legend h4{margin:8px 0 4px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.lg{display:flex;align-items:center;gap:10px;padding:3px 0}
+.lg code{font-family:Consolas,monospace}
+.lg.note{display:block;color:var(--mut);padding-top:6px}
+.lg .sw{display:inline-block;width:34px;height:14px;border-radius:3px;flex:none}
+.lg .bd{flex:none;width:22px;text-align:center}
+.sw.box{background:var(--card);border:1px solid var(--cardb)}
+.sw.box.sel{border-color:var(--hl);box-shadow:0 0 0 2px color-mix(in srgb,var(--hl) 45%,transparent)}
+.sw.box.match{border-color:#ffb020;box-shadow:0 0 0 2px rgba(255,176,32,.5)}
+.sw.box.mg-new{border:1px dashed var(--new)}
+.sw.box.mg-changed{border:1px dashed var(--chg)}
+.sw.row{background:var(--card);border:1px solid var(--cardb);border-radius:0}
+.sw.row.mg-new{background:color-mix(in srgb,var(--new) 16%,var(--card));box-shadow:inset 3px 0 0 var(--new)}
+.sw.row.mg-changed{background:color-mix(in srgb,var(--chg) 16%,var(--card));box-shadow:inset 3px 0 0 var(--chg)}
+.sw.row.gone{box-shadow:inset 3px 0 0 var(--gone);background:linear-gradient(var(--gone),var(--gone)) center/60% 1px no-repeat,var(--card)}
+.leg-ts{display:none}
+body.ts .leg-ts{display:block}
+body.ts .leg-dbml{display:none}
 #hint{position:fixed;right:12px;bottom:10px;z-index:900;color:var(--mut);font-size:12px;background:var(--bar);border:1px solid var(--barb);border-radius:6px;padding:4px 10px}
 #empty{position:fixed;left:var(--sw);right:0;top:46px;bottom:0;display:none;align-items:center;justify-content:center;z-index:700;color:var(--mut);font-size:16px;text-align:center;pointer-events:none}
 body.noside #empty{left:0}
@@ -96,6 +123,7 @@ body.noside #ext{left:12px}
   <button id="bFit" title="Enquadrar tudo (tecla 0)">Ajustar</button>
   <button id="bOrg" title="Descarta suas posições e organiza automaticamente">Reorganizar</button>
   <button id="bMinus">−</button><span id="zoom">100%</span><button id="bPlus">+</button>
+  <button id="bLegend" class="on" title="Mostrar/ocultar a legenda">Legenda</button>
   <button id="bTheme">Tema</button>
   <button id="bOpen">Abrir…</button>
   <input id="file" type="file" accept=".dbml,.ts,.txt" hidden>
@@ -117,6 +145,27 @@ body.noside #ext{left:12px}
 <div id="vp"><div id="world"><svg id="edges" width="1" height="1"></svg></div></div>
 <div id="empty">Abra um arquivo .dbml ou comece a escrever no editor</div>
 <div id="ext"><span>O arquivo foi alterado em disco.</span><button id="extReload">Recarregar do disco</button><button id="extKeep">Manter o meu</button></div>
+<div id="legend">
+  <h4>Legenda</h4>
+  <div class="lg"><i class="sw" style="background:var(--hd)"></i>Tabela</div>
+  <div class="lg"><i class="sw" style="background:#7c4dbb"></i>Enum (valores fixos)</div>
+  <div class="lg leg-dbml"><i class="sw" style="background:linear-gradient(90deg,#d6457a,#e0a030)"></i>Cor própria (<code>headercolor</code> no DBML)</div>
+  <div class="lg"><span class="bd pk">PK</span>Chave primária</div>
+  <div class="lg"><span class="bd fk">FK</span>Chave estrangeira</div>
+  <div class="lg"><svg width="34" height="12"><path d="M0 6H34" stroke="var(--line)" stroke-width="1.5"/></svg>Relação (muitos → um)</div>
+  <div class="lg"><svg width="34" height="12"><path d="M0 6H34" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/></svg>Coluna usa um enum</div>
+  <div class="lg"><i class="sw box sel"></i>Selecionada (clique, ou cursor no código)</div>
+  <div class="lg"><i class="sw box match"></i>Resultado da busca</div>
+  <div class="leg-ts">
+    <h4>Migration (vs. snapshot do Drizzle)</h4>
+    <div class="lg"><i class="sw box mg-new"></i>Tabela ou enum nova</div>
+    <div class="lg"><i class="sw box mg-changed"></i>Tabela ou enum alterada</div>
+    <div class="lg"><i class="sw row mg-new"></i>Coluna nova</div>
+    <div class="lg"><i class="sw row mg-changed"></i>Coluna com tipo, null ou PK alterado</div>
+    <div class="lg"><i class="sw row gone"></i>Coluna removida do schema.ts</div>
+    <div class="lg note">Compara só com a última migration <b>gerada</b>; não diz se já foi aplicada no banco.</div>
+  </div>
+</div>
 <div id="status"></div>
 <div id="hint">Clique numa tabela para ir ao código · arraste para organizar · roda: zoom</div>
 
@@ -125,6 +174,7 @@ body.noside #ext{left:12px}
 <script src="js/drizzle/ts-parser.js"></script>
 <script src="js/drizzle/drizzle-model.js"></script>
 <script src="js/drizzle/ts-highlight.js"></script>
+<script src="js/drizzle/snapshot-diff.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/app.js"></script>
