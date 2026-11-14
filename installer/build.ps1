@@ -1,55 +1,39 @@
-# Gera dist\c2t-schema-db-editor-Setup.exe (instalador único). Usa só o csc.exe que já vem no Windows.
+# Gera c2t-schema-db-editor-Setup.exe na raiz do repositório (instalador único). Usa só o csc.exe que já vem no Windows.
 # Nome, versão e editor ficam em Product.cs; o manifesto (compatibilidade, DPI) em app.manifest.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $web  = (Resolve-Path (Join-Path $root '..\dbml-viewer')).Path
-$dist = Join-Path $root '..\dist'
+$repo = (Resolve-Path (Join-Path $root '..')).Path   # o instalador sai na raiz do repositório
 $obj  = Join-Path $root 'obj'
-New-Item -ItemType Directory -Force $dist, $obj | Out-Null
+New-Item -ItemType Directory -Force $obj | Out-Null
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $product  = Join-Path $root 'Product.cs'
 $manifest = Join-Path $root 'app.manifest'
 $name = [regex]::Match((Get-Content $product -Raw), 'Name\s*=\s*"([^"]+)"').Groups[1].Value
 if (-not $name) { throw 'Nome do produto não encontrado em Product.cs' }
 
-# ---- ícone: duas tabelas ligadas sobre um quadrado azul, desenhado em cada tamanho (16 a 256) ----
+# ---- ícone: círculo em degradê com três camadas empilhadas, desenhado em cada tamanho (16 a 256) ----
 Add-Type -AssemblyName System.Drawing
-function RoundRect($x, $y, $w, $h, $r) {
-    $p = New-Object Drawing.Drawing2D.GraphicsPath; $d = 2 * $r
-    $p.AddArc($x, $y, $d, $d, 180, 90); $p.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
-    $p.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90); $p.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
-    $p.CloseFigure(); return $p
-}
 function IconPng($size) {
     $bmp = New-Object Drawing.Bitmap $size, $size
     $g = [Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = 'AntiAlias'; $g.PixelOffsetMode = 'HighQuality'; $g.Clear([Drawing.Color]::Transparent)
     $g.ScaleTransform($size / 256, $size / 256)   # o desenho é feito numa grade de 256
-    $bg = RoundRect 8 8 240 240 52
-    $grad = New-Object Drawing.Drawing2D.LinearGradientBrush (New-Object Drawing.Point 0, 0), (New-Object Drawing.Point 0, 256), ([Drawing.Color]::FromArgb(59, 130, 246)), ([Drawing.Color]::FromArgb(29, 58, 138))
-    $g.FillPath($grad, $bg)
-    $white = New-Object Drawing.SolidBrush ([Drawing.Color]::White)
-    $head  = New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb(191, 219, 254))
-    $row   = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(148, 163, 184)), 7
-    $row.StartCap = 'Round'; $row.EndCap = 'Round'
-    # ligação em "L" entre as duas tabelas
-    $link = New-Object Drawing.Pen ([Drawing.Color]::White), 12
-    $link.LineJoin = 'Round'
-    $g.DrawLines($link, [Drawing.Point[]]@((New-Object Drawing.Point 70, 124), (New-Object Drawing.Point 70, 176), (New-Object Drawing.Point 116, 176)))
-    foreach ($t in @(@(36, 42), @(112, 134))) {
-        $x = $t[0]; $y = $t[1]
-        $g.FillPath($white, (RoundRect $x $y 108 84 10))
-        $clip = $g.Clip; $g.SetClip((RoundRect $x $y 108 84 10)); $g.FillRectangle($head, $x, $y, 108, 26); $g.Clip = $clip
-        if ($size -ge 40) {   # as linhas internas somem nos tamanhos pequenos, onde só virariam borrão
-            $g.DrawLine($row, $x + 16, $y + 46, $x + 90, $y + 46); $g.DrawLine($row, $x + 16, $y + 66, $x + 68, $y + 66)
-        }
+    # círculo com degradê em diagonal (índigo -> ciano)
+    $grad = New-Object Drawing.Drawing2D.LinearGradientBrush (New-Object Drawing.Point 20, 20), (New-Object Drawing.Point 236, 236), ([Drawing.Color]::FromArgb(79, 70, 229)), ([Drawing.Color]::FromArgb(6, 182, 212))
+    $g.FillEllipse($grad, 4, 4, 248, 248)
+    # três camadas empilhadas (de baixo para cima, da mais transparente para a branca)
+    $layers = @(@(170, 110), @(132, 175), @(94, 255))
+    foreach ($l in $layers) {
+        $brush = New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb($l[1], 255, 255, 255))
+        $g.FillEllipse($brush, 56, $l[0] - 30, 144, 60)
     }
     $ms = New-Object IO.MemoryStream; $bmp.Save($ms, [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()
     return ,$ms.ToArray()
 }
 $sizes = 16, 20, 24, 32, 40, 48, 64, 256
 $pngs = @{}; foreach ($s in $sizes) { $pngs[$s] = IconPng $s }
-[IO.File]::WriteAllBytes((Join-Path $obj 'icon-256.png'), $pngs[256])   # só para conferir o desenho
+foreach ($s in $sizes) { [IO.File]::WriteAllBytes((Join-Path $obj "icon-$s.png"), $pngs[$s]) }   # para conferir o desenho; o de 256 vai na janela do instalador
 $ico = Join-Path $obj 'app.ico'
 $fs = [IO.File]::Create($ico); $bw = New-Object IO.BinaryWriter $fs
 $bw.Write([uint16]0); $bw.Write([uint16]1); $bw.Write([uint16]$sizes.Count)
@@ -73,7 +57,7 @@ $appExe = Join-Path $obj "$name.exe"
 if ($LASTEXITCODE) { throw 'Falha ao compilar o app' }
 
 # ---- 2) o instalador (embute o app e o ícone, que ele mostra na própria janela) ----
-$setup = Join-Path $dist "$name-Setup.exe"
+$setup = Join-Path $repo "$name-Setup.exe"
 & $csc /nologo /target:winexe /optimize "/win32icon:$ico" "/win32manifest:$manifest" "/out:$setup" /r:System.Windows.Forms.dll /r:System.Drawing.dll "/res:$appExe,App.exe" "/res:$obj\icon-256.png,icon.png" $product (Join-Path $root 'Setup.cs')
 if ($LASTEXITCODE) { throw 'Falha ao compilar o instalador' }
 Write-Host "Gerado: $setup ($([math]::Round((Get-Item $setup).Length/1KB)) KB)"

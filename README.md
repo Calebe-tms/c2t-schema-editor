@@ -14,7 +14,7 @@ O app se chamava **DBML Editor** até a versão 1.0.0. O instalador novo remove 
 
 ## Instalação (Windows 10/11)
 
-**Só instalar:** dê duplo clique em `dist\c2t-schema-db-editor-Setup.exe` (já vem pronto no repositório, nada para compilar).
+**Só instalar:** dê duplo clique em `c2t-schema-db-editor-Setup.exe`, na raiz do repositório (já vem pronto, nada para compilar).
 
 A janela do instalador mostra a versão e a pasta de destino, e oferece criar atalho na Área de Trabalho e abrir o programa ao concluir.
 Ele instala em `%LOCALAPPDATA%\Programs\c2t-schema-db-editor` (sem administrador), cria atalho no Menu Iniciar, associa `.dbml`,
@@ -96,4 +96,4 @@ O anel não usa a borda, então uma tabela nova continua verde mesmo selecionada
 | `installer/app.manifest` | manifesto dos executáveis: compatibilidade com Windows 10/11, sem administrador, DPI |
 | `installer/App.cs` | o app: servidor local + abre o navegador (embute a página) |
 | `installer/Setup.cs` | instalador/desinstalador com janela (arquivos, associações, atalhos, registro) |
-| `installer/build.ps1` | compila tudo com o `csc.exe` do Windows gera o ícone e `dist\c2t-schema-db-editor-Setup.exe` |
+| `installer/build.ps1` | compila tudo com o `csc.exe` do Windows gera o ícone e `c2t-schema-db-editor-Setup.exe` na raiz |
