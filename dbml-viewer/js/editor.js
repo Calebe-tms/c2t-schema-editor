@@ -46,6 +46,7 @@ class CodeEditor {
     this.ta = $('#ta'); this.hl = $('#hl'); this.layer = $('#layer'); this.gut = $('#gutIn');
     this.band = $('#band'); this.errBar = $('#edErr');
     this.errLine = 0; this.nLines = -1; this.lastCaret = -1;
+    this.hlFn = highlight; this.indent = '  '; this.ts = false; // modo DBML (padrão) ou TypeScript
     this.ta.addEventListener('input', () => { this.refresh(); cb.onInput(); this.caretCheck(); });
     this.ta.addEventListener('scroll', () => this.syncScroll());
     this.ta.addEventListener('keydown', ev => this.onKey(ev));
@@ -54,11 +55,13 @@ class CodeEditor {
   }
   get value() { return this.ta.value; }
   setValue(t) { this.ta.value = t; this.refresh(); this.syncScroll(); }
+  // 'ts' = schema.ts do Drizzle (indenta com tab, como o arquivo); qualquer outro valor = DBML
+  setMode(mode) { this.ts = mode === 'ts'; this.hlFn = this.ts ? highlightTs : highlight; this.indent = this.ts ? '\t' : '  '; }
   focus() { this.ta.focus(); }
 
   refresh() {
     const t = this.ta.value;
-    this.hl.innerHTML = highlight(t) + '\n';
+    this.hl.innerHTML = this.hlFn(t) + '\n';
     const n = t.split('\n').length;
     if (n !== this.nLines || this._gErr !== this.errLine) { this.nLines = n; this._gErr = this.errLine; this.buildGutter(); }
   }
@@ -121,24 +124,27 @@ class CodeEditor {
       ev.preventDefault();
       const multi = ta.value.slice(ta.selectionStart, ta.selectionEnd).includes('\n');
       if (ev.shiftKey) this.replaceLines(b => b.split('\n').map(l => l.replace(/^( {1,2}|\t)/, '')).join('\n'));
-      else if (multi) this.replaceLines(b => b.split('\n').map(l => '  ' + l).join('\n'));
-      else this.insert('  ');
+      else if (multi) this.replaceLines(b => b.split('\n').map(l => this.indent + l).join('\n'));
+      else this.insert(this.indent);
       return;
     }
     if (ev.key === 'Enter' && !ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
       const t = ta.value, p = ta.selectionStart, ls = t.lastIndexOf('\n', p - 1) + 1;
       const indent = (t.slice(ls, p).match(/^[ \t]*/) || [''])[0];
       const before = t.slice(0, p).trimEnd().slice(-1), after = t.slice(ta.selectionEnd).match(/^[ \t]*(.)/);
+      // no TypeScript também abre indentação depois de "[" e "("; no DBML só depois de "{"
+      const opens = this.ts ? '{[(' : '{', closeOf = { '{': '}', '[': ']', '(': ')' };
       ev.preventDefault();
-      if (before === '{' && after && after[1] === '}') {
-        this.insert('\n' + indent + '  \n' + indent);
+      if (before && opens.includes(before) && after && after[1] === closeOf[before]) {
+        this.insert('\n' + indent + this.indent + '\n' + indent);
         const q = ta.selectionStart - indent.length - 1; ta.setSelectionRange(q, q);
-      } else this.insert('\n' + indent + (before === '{' ? '  ' : ''));
+      } else this.insert('\n' + indent + (before && opens.includes(before) ? this.indent : ''));
       return;
     }
-    if (ev.key === '}' && !ev.ctrlKey && !ev.altKey) {
-      const t = ta.value, p = ta.selectionStart, ls = t.lastIndexOf('\n', p - 1) + 1, seg = t.slice(ls, p);
-      if (ta.selectionStart === ta.selectionEnd && /^ {2,}$/.test(seg)) ta.setSelectionRange(p - 2, p);
+    if ((ev.key === '}' || (this.ts && (ev.key === ']' || ev.key === ')'))) && !ev.ctrlKey && !ev.altKey) {
+      // fechar o bloco numa linha só de indentação tira um nível de recuo
+      const t = ta.value, p = ta.selectionStart, ls = t.lastIndexOf('\n', p - 1) + 1, seg = t.slice(ls, p), un = this.indent.length;
+      if (ta.selectionStart === ta.selectionEnd && (this.ts ? /^\t+$/ : /^ {2,}$/).test(seg)) ta.setSelectionRange(p - un, p);
     }
   }
 }

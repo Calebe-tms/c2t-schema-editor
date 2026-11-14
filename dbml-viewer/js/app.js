@@ -184,18 +184,21 @@ function applyModel(m) {
   if (selId && byId[selId]) select(byId[selId]);
   const nt = m.nodes.filter(n => n.kind === 'table').length, ne = m.nodes.length - nt;
   $('#status').textContent = `${nt} tabelas` + (ne ? ` · ${ne} enums` : '') + ` · ${m.edges.filter(e => e.kind === 'ref').length} relações` + (m.warnings.length ? ` · ⚠ ${m.warnings.join(' | ')}` : '');
-  $('#empty').style.display = m.nodes.length ? 'none' : 'flex'; $('#empty').textContent = 'Escreva o DBML no editor ao lado';
+  $('#empty').style.display = m.nodes.length ? 'none' : 'flex'; $('#empty').textContent = doc.mode === 'ts' ? 'Nenhuma tabela encontrada no código ao lado' : 'Escreva o DBML no editor ao lado';
   if (first) { if (doc.layout && doc.layout.view) { view = doc.layout.view; applyView(); } else fit(); doc.layout = null; }
   runSearch(); onCaretLine(ed.caretLine());
   (document.fonts && document.fonts.ready || Promise.resolve()).then(() => { if (model !== m) return; m.nodes.forEach(measure); m.edges.forEach(drawEdge); });
   window.__model = m;
 }
 
+// .ts abre o schema do Drizzle; qualquer outra extensão é DBML
+const modeOf = name => /\.[cm]?tsx?$/i.test(name || '') ? 'ts' : 'dbml';
+
 function compile() {
   let m;
-  try { m = parseDbml(ed.value); }
+  try { m = (doc && doc.mode === 'ts' ? parseDrizzle : parseDbml)(ed.value); }
   catch (e) {
-    ed.setError(e instanceof DbmlError ? e.line : 1, e.message);
+    ed.setError(e instanceof DbmlError || e instanceof TsError ? e.line : 1, e.message);
     if (!model) { $('#empty').style.display = 'flex'; $('#empty').textContent = 'Corrija o erro de sintaxe no código'; }
     return;
   }
@@ -207,15 +210,15 @@ const isDirty = () => !!doc && ed.value !== doc.saved;
 function updateDirty() {
   const d = isDirty();
   $('#dirty').style.display = d ? 'inline' : 'none'; $('#bSave').disabled = !d;
-  document.title = (d ? '• ' : '') + (doc ? doc.name : 'DBML Editor') + ' — DBML Editor';
-}
+  document.title = (d ? '• ' : '') + (doc ? doc.name : 'DBML Editor') + ' — DBML Editor';}
 function setSaveState(txt, bad) { const s = $('#saveState'); s.textContent = txt; s.classList.toggle('bad', !!bad); }
 async function loadDocument(text, name, key, extra) {
   extra = extra || {};
   const eol = text.includes('\r\n') ? '\r\n' : '\n', t = text.replace(/^﻿/, '').replace(/\r\n/g, '\n');
-  doc = { name, key, eol, saved: t, mtime: extra.mtime || 0, handle: extra.handle || null, layout: null };
+  doc = { name, key, eol, saved: t, mtime: extra.mtime || 0, handle: extra.handle || null, layout: null, mode: modeOf(name) };
   clearDiagram(); model = null; selected = null;
   doc.layout = await kv.get('layout');
+  ed.setMode(doc.mode); $('#edHead').textContent = doc.mode === 'ts' ? 'Código TypeScript (Drizzle)' : 'Código DBML';
   ed.setValue(t); ed.setError(0, null); $('#fname').textContent = name; updateDirty(); setSaveState('');
   compile();
 }
@@ -318,7 +321,7 @@ addEventListener('pagehide', () => { if (backend && navigator.sendBeacon) naviga
 async function openLocal() {
   if (window.showOpenFilePicker) {
     try {
-      const [handle] = await showOpenFilePicker({ types: [{ description: 'DBML', accept: { 'text/plain': ['.dbml', '.txt'] } }] });
+      const [handle] = await showOpenFilePicker({ types: [{ description: 'DBML', accept: { 'text/plain': ['.dbml', '.ts', '.txt'] } }] });
       const f = await handle.getFile(); await loadDocument(await f.text(), f.name, f.name, { handle });
     } catch (e) { /* cancelado */ }
   } else $('#file').click();
