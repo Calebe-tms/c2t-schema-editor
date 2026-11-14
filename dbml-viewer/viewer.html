@@ -9,7 +9,7 @@
  --ed:#121620;--gut:#586277;--tc:#6a7a8f;--ts:#a5d6a7;--tk:#c792ea;--tt:#82aaff;--ta:#ffcb6b;--tn:#f78c6c;--to:#89ddff;--tp:#8a96ad;--tq:#e6edf7;--band:rgba(77,163,255,.10);--sw:440px;--new:#3fb950;--chg:#d9a21b;--gone:#f0605a}
 body.light{--bg:#f3f5f9;--dot:#d5dbe6;--card:#ffffff;--cardb:#cdd5e2;--txt:#1d2433;--mut:#6a7588;--line:#8190aa;--hl:#1f6feb;--rowh:#eef2f8;--bar:#ffffff;--barb:#dbe1ec;--btn:#f0f3f8;--btnh:#e3e9f3;
  --ed:#fbfcfe;--gut:#9aa5b8;--tc:#8a94a6;--ts:#2e7d32;--tk:#8e24aa;--tt:#1565c0;--ta:#b26a00;--tn:#d84315;--to:#00838f;--tp:#6b768b;--tq:#1d2433;--band:rgba(31,111,235,.09);--new:#1a7f37;--chg:#9a6700;--gone:#cf222e}
-*{box-sizing:border-box}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--mut) 40%,transparent) transparent} /* barras de rolagem finas, nas cores do tema */
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font:13px/1.35 "Segoe UI",system-ui,sans-serif}
 #bar{position:fixed;inset:0 0 auto 0;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--bar);border-bottom:1px solid var(--barb);z-index:1000}
 #bar .brand{font-weight:600;display:flex;gap:8px;align-items:center;white-space:nowrap;max-width:28vw;overflow:hidden;text-overflow:ellipsis}
@@ -63,6 +63,11 @@ body.noside #vp{left:0}
 .tbl{position:absolute;min-width:190px;background:var(--card);border:1px solid var(--cardb);border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,.28);user-select:none;-webkit-user-select:none;cursor:grab;overflow:hidden}
 .tbl.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .tbl.dim{opacity:.3}
+/* enums são tabelas de apoio: menores e mais discretas que as tabelas principais (vêm antes da migration/seleção para elas ainda valerem) */
+.tbl.enum{min-width:140px;border-radius:6px;box-shadow:none;background:color-mix(in srgb,var(--card) 75%,var(--bg))}
+.tbl.enum .hd{padding:4px 10px;font-size:11px;background:color-mix(in srgb,var(--cardb) 65%,var(--card))}
+.tbl.enum .hd small{font-size:9px}
+.tbl.enum .rw{padding:2px 10px;gap:8px;font-size:11px}
 /* Um significado por canal visual:
    BORDA = estado de migration (verde nova, âmbar alterada, vermelha tracejada removida);
    TÍTULO = tipo (claro: tabela, lilás: enum); CABEÇALHO = schema (tons sóbrios, definidos no app.js);
@@ -116,8 +121,12 @@ body.noside #status{left:12px}
 .leg-ts{display:none}
 body.ts .leg-ts{display:block}
 body.ts .leg-dbml{display:none}
-.hd .dt{margin-left:auto;align-self:center;font-size:10px;line-height:14px;padding:0 7px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:4px}
-.hd .dt:hover{background:rgba(255,255,255,.24)}
+/* botão Detalhes discreto: quase apagado até o mouse chegar no cartão (nos enums, só aparece no hover) */
+.hd .dt{margin-left:auto;align-self:center;font-size:9px;line-height:12px;padding:0 6px;background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:4px;opacity:.5}
+.tbl:hover .hd .dt{opacity:1}
+.tbl.enum .hd .dt{opacity:0}
+.tbl.enum:hover .hd .dt{opacity:1}
+.hd .dt:hover{background:rgba(255,255,255,.2);color:#fff}
 /* ---- janela Sobre ---- */
 #about{width:420px;max-width:90vw;background:var(--bar);color:var(--txt);border:1px solid var(--barb);border-radius:10px;padding:18px 22px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #about::backdrop{background:rgba(0,0,0,.45)}
@@ -195,7 +204,7 @@ body.noside #ext{left:12px}
   </div>
   <h4><b>Título</b> · tipo</h4>
   <div class="lg"><i class="sw ttl">Aa</i>Tabela</div>
-  <div class="lg"><i class="sw ttl en">Aa</i>Enum (valores fixos)</div>
+  <div class="lg"><i class="sw ttl en">Aa</i>Enum (valores fixos; cartão menor e discreto)</div>
   <h4><b>Cabeçalho</b> · schema</h4>
   <div class="lg" id="legSchemaOne"><i class="sw"></i>Um schema só: mesma cor em tudo</div>
   <div id="legSchemas"></div>

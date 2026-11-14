@@ -151,7 +151,8 @@ function buildNode(n) {
   // n.mig (só no modo .ts): 'new' | 'changed' | 'gone' em relação ao snapshot do Drizzle -> borda do cartão
   const el = h('div', 'tbl' + (n.kind === 'enum' ? ' enum' : '') + (n.mig ? ' mig-' + n.mig : '')); el.dataset.id = n.id;
   // cabeçalho: cor própria (headercolor do DBML) ou o tom do schema
-  const hd = h('div', 'hd'); hd.style.background = n.color || schemaTone.get(n.schema || '') || '';
+  // enums ficam com o cabeçalho neutro do CSS (cartão discreto); tabelas usam o tom do schema
+  const hd = h('div', 'hd'); hd.style.background = n.color || (n.kind === 'enum' ? '' : schemaTone.get(n.schema || '')) || '';
   hd.append(h('span', null, n.name)); if (n.kind === 'enum') hd.append(h('small', null, 'enum'));
   if (n.schema) hd.append(h('small', null, n.schema));
   if (n.alias) hd.append(h('small', null, 'as ' + n.alias));
